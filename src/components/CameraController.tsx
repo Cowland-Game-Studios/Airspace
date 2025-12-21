@@ -6,8 +6,7 @@ import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { useAirspaceStore } from '@/store/gameStore';
 
-const GLOBE_RADIUS = 1;
-const MIN_CAMERA_DISTANCE = 1.05; // Minimum distance from globe center
+const MIN_CAMERA_DISTANCE = 1.05; // Minimum distance from globe center when not tracking
 
 // Convert lat/lon to 3D position on globe
 function latLonToVector3(lat: number, lon: number, alt: number = 0): THREE.Vector3 {
@@ -87,20 +86,16 @@ export function CameraController() {
     
     if (isAnimating.current) {
       // Animate to target
-      animationProgress.current += delta * 1.5; // Animation speed
+      animationProgress.current += delta * 1.5;
       const t = Math.min(animationProgress.current, 1);
-      const eased = 1 - Math.pow(1 - t, 3); // Ease out cubic
+      const eased = 1 - Math.pow(1 - t, 3);
       
-      // Interpolate camera position
       camera.position.lerpVectors(startPosition.current, targetCameraPos.current, eased);
-      
-      // Interpolate look-at target
       currentTarget.current.lerpVectors(startTarget.current, targetLookAt.current, eased);
       controlsRef.current.target.copy(currentTarget.current);
       
       if (t >= 1) {
         isAnimating.current = false;
-        // Store offset for tracking
         if (selectedAircraft) {
           const aircraftPos = latLonToVector3(
             selectedAircraft.position.latitude,
@@ -111,18 +106,16 @@ export function CameraController() {
         }
       }
     } else if (selectedAircraft) {
-      // Tracking mode - follow the aircraft smoothly
+      // Tracking mode
       const aircraftPos = latLonToVector3(
         selectedAircraft.position.latitude,
         selectedAircraft.position.longitude,
         selectedAircraft.position.altitude
       );
       
-      // Smoothly update camera offset (allows user to orbit while tracking)
       const targetPos = aircraftPos.clone().add(currentCameraOffset.current);
       camera.position.lerp(targetPos, delta * 3);
       
-      // Smoothly update look-at target
       currentTarget.current.lerp(aircraftPos, delta * 5);
       controlsRef.current.target.copy(currentTarget.current);
     } else {
@@ -136,7 +129,6 @@ export function CameraController() {
     controlsRef.current.update();
   });
   
-  // Handle user interaction to update offset
   const handleControlsChange = () => {
     if (selectedId && !isAnimating.current) {
       const selectedAircraft = aircraft.find(a => a.id === selectedId);

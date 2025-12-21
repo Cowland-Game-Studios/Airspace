@@ -5,6 +5,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 interface ScrollingTextProps {
   text: string;
   className?: string;
+  glowColor?: 'blue' | 'yellow' | 'green';
 }
 
 const DIGITS = '0123456789';
@@ -56,9 +57,16 @@ interface CharacterSlotProps {
   char: string;
   prevChar: string;
   delay: number;
+  glowColor: 'blue' | 'yellow' | 'green';
 }
 
-function CharacterSlot({ char, prevChar, delay }: CharacterSlotProps) {
+const GLOW_COLORS = {
+  blue: 'text-[#00d4ff]',
+  yellow: 'text-[#ffaa00]',
+  green: 'text-[#00ff88]',
+};
+
+function CharacterSlot({ char, prevChar, delay, glowColor }: CharacterSlotProps) {
   const [scrollPath, setScrollPath] = useState<string[]>([char]);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -100,30 +108,22 @@ function CharacterSlot({ char, prevChar, delay }: CharacterSlotProps) {
   
   if (!charSet) {
     // Non-scrollable character, just render it
-    return <span className="inline-block">{char}</span>;
+    return <span>{char}</span>;
   }
   
   return (
     <span 
-      className="inline-block relative overflow-hidden"
-      style={{ 
-        height: '1.2em',
-        verticalAlign: 'bottom'
+      className={`transition-colors ${isAnimating ? GLOW_COLORS[glowColor] : ''}`}
+      style={{
+        transitionDuration: isAnimating ? '50ms' : '200ms',
       }}
     >
-      <span 
-        className={`inline-block transition-transform ${isAnimating ? 'text-[#00ff88]' : ''}`}
-        style={{
-          transitionDuration: isAnimating ? '50ms' : '200ms',
-        }}
-      >
-        {displayChar}
-      </span>
+      {displayChar}
     </span>
   );
 }
 
-export function ScrollingText({ text, className = '' }: ScrollingTextProps) {
+export function ScrollingText({ text, className = '', glowColor = 'blue' }: ScrollingTextProps) {
   const [prevText, setPrevText] = useState(text);
   const [currentText, setCurrentText] = useState(text);
   const isFirstRender = useRef(true);
@@ -161,6 +161,7 @@ export function ScrollingText({ text, className = '' }: ScrollingTextProps) {
           char={char}
           prevChar={prevChar}
           delay={key * 20}
+          glowColor={glowColor}
         />
       ))}
     </span>

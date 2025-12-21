@@ -1,7 +1,7 @@
 'use client';
 
 import { useAirspaceStore, Aircraft } from '@/store/gameStore';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { ScrollingText } from './ScrollingText';
 
 function formatAltitude(ft: number | undefined): string {
@@ -48,19 +48,20 @@ function getPositionSource(src: number | undefined): string {
   return 'UNKNOWN';
 }
 
-function DataRow({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+function DataRow({ label, value, accent, glowColor = 'blue' }: { label: string; value: string; accent?: boolean; glowColor?: 'blue' | 'yellow' | 'green' }) {
   return (
     <div className="flex justify-between items-center py-0.5">
       <span className="text-[#555]">{label}</span>
       <ScrollingText 
         text={value} 
-        className={accent ? 'text-[#00ff88]' : 'text-white'} 
+        className={accent ? 'text-[#00ff88]' : 'text-white'}
+        glowColor={glowColor}
       />
     </div>
   );
 }
 
-function TrackInfoPanel({ aircraft, isHovering }: { aircraft: Aircraft | undefined; isHovering: boolean }) {
+function TrackInfoPanel({ aircraft, isHovering, isSelected, onClose }: { aircraft: Aircraft | undefined; isHovering: boolean; isSelected: boolean; onClose: () => void }) {
   const contentRef = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState(0);
   const prevAircraftRef = useRef<Aircraft | undefined>(undefined);
@@ -76,16 +77,26 @@ function TrackInfoPanel({ aircraft, isHovering }: { aircraft: Aircraft | undefin
     prevAircraftRef.current = aircraft;
   }, [aircraft]);
 
+  const glowColor = 'yellow' as const;
+
   return (
     <div 
       className={'bg-black/90 border min-w-[280px] transition-all duration-300 ease-out overflow-hidden ' + 
         (isHovering ? 'border-[#ffaa00]/50' : 'border-[#1a1a1a]')}
     >
       <div 
-        className={'border-b px-3 py-2 text-[10px] transition-colors duration-300 ' + 
+        className={'border-b px-3 py-2 text-[10px] transition-colors duration-300 flex justify-between items-center ' + 
           (isHovering ? 'border-[#ffaa00]/50 text-[#ffaa00]' : 'border-[#1a1a1a] text-[#666]')}
       >
-        TRACK_INFO {isHovering && <span className="text-[#888]">(HOVER)</span>}
+        <span>TRACK_INFO {isHovering && <span className="text-[#888]">(HOVER)</span>}</span>
+        {isSelected && (
+          <button 
+            onClick={onClose}
+            className="text-[#ff4444] hover:text-[#ff6666] hover:bg-[#ff4444]/10 px-1.5 transition-colors"
+          >
+            [UNFOLLOW]
+          </button>
+        )}
       </div>
       <div 
         className="transition-[height] duration-300 ease-out"
@@ -98,15 +109,15 @@ function TrackInfoPanel({ aircraft, isHovering }: { aircraft: Aircraft | undefin
               <div className="flex items-baseline justify-between border-b border-[#1a1a1a] pb-2">
                 <div>
                   <div className="text-white font-medium text-sm">
-                    <ScrollingText text={aircraft.callsign} />
+                    <ScrollingText text={aircraft.callsign} glowColor={glowColor} />
                   </div>
                   <div className="text-[#666] text-[9px]">
-                    <ScrollingText text={aircraft.originCountry || 'Unknown Origin'} />
+                    <ScrollingText text={aircraft.originCountry || 'Unknown Origin'} glowColor={glowColor} />
                   </div>
                 </div>
                 <div className="text-right">
                   <div className="text-[#00ff88] font-mono">
-                    <ScrollingText text={aircraft.id.toUpperCase()} />
+                    <ScrollingText text={aircraft.id.toUpperCase()} glowColor="green" />
                   </div>
                   <div className="text-[#444] text-[9px]">ICAO24</div>
                 </div>
@@ -117,12 +128,13 @@ function TrackInfoPanel({ aircraft, isHovering }: { aircraft: Aircraft | undefin
                 <div className={'w-1.5 h-1.5 rounded-full ' + (aircraft.onGround ? 'bg-[#666]' : 'bg-[#00ff88]')} />
                 <ScrollingText 
                   text={aircraft.onGround ? 'ON_GROUND' : 'AIRBORNE'} 
-                  className="text-[#888]" 
+                  className="text-[#888]"
+                  glowColor={glowColor}
                 />
                 {aircraft.squawk && (
                   <>
                     <span className="text-[#333]">|</span>
-                    <span className="text-[#888]">SQK: <ScrollingText text={aircraft.squawk} className="text-[#ffaa00]" /></span>
+                    <span className="text-[#888]">SQK: <ScrollingText text={aircraft.squawk} className="text-[#ffaa00]" glowColor={glowColor} /></span>
                   </>
                 )}
                 {aircraft.spi && <span className="text-[#ff4444] animate-pulse">SPI</span>}
@@ -132,8 +144,8 @@ function TrackInfoPanel({ aircraft, isHovering }: { aircraft: Aircraft | undefin
               <div className="border-t border-[#1a1a1a] pt-2">
                 <div className="text-[#444] text-[9px] tracking-wider mb-1">POSITION</div>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
-                  <DataRow label="LAT" value={formatCoord(aircraft.position.latitude, true)} />
-                  <DataRow label="LON" value={formatCoord(aircraft.position.longitude, false)} />
+                  <DataRow label="LAT" value={formatCoord(aircraft.position.latitude, true)} glowColor={glowColor} />
+                  <DataRow label="LON" value={formatCoord(aircraft.position.longitude, false)} glowColor={glowColor} />
                 </div>
               </div>
               
@@ -141,11 +153,12 @@ function TrackInfoPanel({ aircraft, isHovering }: { aircraft: Aircraft | undefin
               <div className="border-t border-[#1a1a1a] pt-2">
                 <div className="text-[#444] text-[9px] tracking-wider mb-1">ALTITUDE </div>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
-                  <DataRow label="BARO" value={formatAltitude(aircraft.position.altitude)} />
-                  <DataRow label="GPS" value={formatAltitude(aircraft.position.geoAltitude)} />
+                  <DataRow label="BARO" value={formatAltitude(aircraft.position.altitude)} glowColor={glowColor} />
+                  <DataRow label="GPS" value={formatAltitude(aircraft.position.geoAltitude)} glowColor={glowColor} />
                   <DataRow 
                     label="V/S" 
-                    value={formatVerticalRate(aircraft.position.verticalRate)} 
+                    value={formatVerticalRate(aircraft.position.verticalRate)}
+                    glowColor={glowColor}
                   />
                 </div>
               </div>
@@ -154,15 +167,15 @@ function TrackInfoPanel({ aircraft, isHovering }: { aircraft: Aircraft | undefin
               <div className="border-t border-[#1a1a1a] pt-2">
                 <div className="text-[#444] text-[9px] tracking-wider mb-1">VELOCITY</div>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
-                  <DataRow label="GND SPD" value={formatSpeed(aircraft.position.speed)} />
-                  <DataRow label="TRACK" value={formatHeading(aircraft.position.heading)} />
+                  <DataRow label="GND SPD" value={formatSpeed(aircraft.position.speed)} glowColor={glowColor} />
+                  <DataRow label="TRACK" value={formatHeading(aircraft.position.heading)} glowColor={glowColor} />
                 </div>
               </div>
               
               {/* Data Source */}
               <div className="border-t border-[#1a1a1a] pt-2 flex justify-between text-[9px]">
-                <span className="text-[#444]">SRC: <ScrollingText text={getPositionSource(aircraft.positionSource)} className="text-[#666]" /></span>
-                <span className="text-[#444]">LAST: <ScrollingText text={formatLastContact(aircraft.lastContact)} className="text-[#666]" /></span>
+                <span className="text-[#444]">SRC: <ScrollingText text={getPositionSource(aircraft.positionSource)} className="text-[#666]" glowColor={glowColor} /></span>
+                <span className="text-[#444]">LAST: <ScrollingText text={formatLastContact(aircraft.lastContact)} className="text-[#666]" glowColor={glowColor} /></span>
               </div>
             </div>
           ) : (
@@ -180,11 +193,27 @@ export function Dashboard() {
   const isPolling = useAirspaceStore((state) => state.isPolling);
   const startGame = useAirspaceStore((state) => state.startGame);
   const endGame = useAirspaceStore((state) => state.endGame);
+  const selectAircraft = useAirspaceStore((state) => state.selectAircraft);
 
   // Show hovered aircraft, fall back to selected
   const displayAircraftId = gameState.hoveredAircraft || gameState.selectedAircraft;
   const displayAircraft = aircraft.find((a) => a.id === displayAircraftId);
   const isHovering = gameState.hoveredAircraft !== null;
+
+  const handleClosePanel = useCallback(() => {
+    selectAircraft(null);
+  }, [selectAircraft]);
+
+  // ESC key to unfollow
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleClosePanel();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleClosePanel]);
 
   return (
     <div className="absolute inset-0 pointer-events-none font-mono">
@@ -195,19 +224,6 @@ export function Dashboard() {
             <h1 className="text-sm font-medium text-white">
               AIRSPACE<span className="text-[#333]">//</span><span className="text-[#666]">v0.1.0</span>
             </h1>
-          </div>
-          <div className="flex items-center gap-4 pointer-events-auto">
-            <div className="flex items-center gap-2 px-3 py-1.5 border border-[#1a1a1a]">
-              <div className={'w-1.5 h-1.5 ' + (isPolling ? 'bg-[#00ff88]' : 'bg-[#ff4444]')} />
-              <span className="text-[10px] tracking-[0.15em] text-[#666]">
-                {isPolling ? 'LINK_ACTIVE' : 'LINK_PAUSED'}
-              </span>
-            </div>
-            <div className="px-3 py-1.5 border border-[#1a1a1a]">
-              <span className="text-[10px] text-[#666]">
-                TRACKS: <ScrollingText text={String(aircraft.length)} className="text-[#00ff88]" />
-              </span>
-            </div>
           </div>
         </div>
       </div>
@@ -242,7 +258,7 @@ export function Dashboard() {
       </div>
       
       <div className="absolute bottom-4 right-4 pointer-events-auto">
-        <TrackInfoPanel aircraft={displayAircraft} isHovering={isHovering} />
+        <TrackInfoPanel aircraft={displayAircraft} isHovering={isHovering} isSelected={gameState.selectedAircraft !== null} onClose={handleClosePanel} />
       </div>
     </div>
   );
