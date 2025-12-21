@@ -1,7 +1,20 @@
 import { create } from 'zustand';
 
-interface Position { latitude: number; longitude: number; altitude: number; heading: number; speed: number; }
-interface Aircraft { id: string; callsign: string; type: string; position: Position; timestamp: number; isPlayerControlled?: boolean; }
+interface Position { latitude: number; longitude: number; altitude: number; heading: number; speed: number; verticalRate?: number; geoAltitude?: number; }
+interface Aircraft {
+  id: string; // ICAO24
+  callsign: string;
+  type: string;
+  position: Position;
+  timestamp: number;
+  isPlayerControlled?: boolean;
+  originCountry?: string;
+  onGround?: boolean;
+  squawk?: string;
+  spi?: boolean;
+  positionSource?: number;
+  lastContact?: number;
+}
 interface GameState { isPlaying: boolean; isPaused: boolean; selectedAircraft: string | null; hoveredAircraft: string | null; controlledAircraft: Set<string>; score: number; landedAircraft: string[]; crashedAircraft: string[]; }
 
 interface Store {
@@ -16,6 +29,8 @@ interface Store {
   isPolling: boolean;
   setPolling: (p: boolean) => void;
 }
+
+export type { Aircraft, Position };
 
 export const useAirspaceStore = create<Store>((set) => ({
   aircraft: [],

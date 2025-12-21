@@ -8,7 +8,11 @@ export function Dashboard() {
   const isPolling = useAirspaceStore((state) => state.isPolling);
   const startGame = useAirspaceStore((state) => state.startGame);
   const endGame = useAirspaceStore((state) => state.endGame);
-  const selectedAircraft = aircraft.find((a) => a.id === gameState.selectedAircraft);
+
+  // Show hovered aircraft, fall back to selected
+  const displayAircraftId = gameState.hoveredAircraft || gameState.selectedAircraft;
+  const displayAircraft = aircraft.find((a) => a.id === displayAircraftId);
+  const isHovering = gameState.hoveredAircraft !== null;
 
   return (
     <div className="absolute inset-0 pointer-events-none font-mono">
@@ -45,15 +49,22 @@ export function Dashboard() {
         </div>
       </div>
       <div className="absolute bottom-4 right-4 pointer-events-auto">
-        <div className="bg-black/90 border border-[#1a1a1a] min-w-[260px]">
-          <div className="border-b border-[#1a1a1a] px-3 py-2 text-[10px] text-[#666]">TRACK_INFO</div>
+        <div className={"bg-black/90 border min-w-[260px] transition-colors " + (isHovering ? "border-[#ffaa00]/50" : "border-[#1a1a1a]")}>
+          <div className={"border-b px-3 py-2 text-[10px] transition-colors " + (isHovering ? "border-[#ffaa00]/50 text-[#ffaa00]" : "border-[#1a1a1a] text-[#666]")}>
+            TRACK_INFO {isHovering && <span className="text-[#888]">(HOVER)</span>}
+          </div>
           <div className="p-3 text-[11px]">
-            {selectedAircraft ? (
+            {displayAircraft ? (
               <div className="space-y-2">
-                <div className="text-white font-medium">{selectedAircraft.callsign}</div>
-                <div className="text-[#888]">ALT: {Math.round(selectedAircraft.position.altitude)} ft</div>
+                <div className="text-white font-medium">{displayAircraft.callsign}</div>
+                <div className="grid grid-cols-2 gap-2 text-[#888]">
+                  <div>ALT: <span className="text-white">{Math.round(displayAircraft.position.altitude).toLocaleString()} ft</span></div>
+                  <div>SPD: <span className="text-white">{Math.round(displayAircraft.position.speed)} kts</span></div>
+                  <div>HDG: <span className="text-white">{Math.round(displayAircraft.position.heading)}º</span></div>
+                  <div>ID: <span className="text-[#00d4ff]">{displayAircraft.id.slice(0,6)}</span></div>
+                </div>
               </div>
-            ) : (<p className="text-[#444]">// SELECT_TRACK</p>)}
+            ) : (<p className="text-[#444]">// HOVER_OR_SELECT_TRACK</p>)}
           </div>
         </div>
       </div>
