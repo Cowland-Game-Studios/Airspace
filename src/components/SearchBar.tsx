@@ -2,12 +2,8 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useRadarStore, Aircraft, Airport } from '@/store/gameStore';
-import { EntityType, getEntityTypeName } from '@/types/entities';
+import { EntityType } from '@/types/entities';
 import { getEntityConfig } from '@/lib/entityRegistry';
-
-// ============================================================================
-// TYPES
-// ============================================================================
 
 interface ParsedSearch {
   entityType: 'all' | EntityType;
@@ -17,8 +13,6 @@ interface ParsedSearch {
     value: string | number | [number, number];
   }[];
   freeText: string[];
-  fallback?: boolean;
-  error?: boolean;
 }
 
 interface SearchResult {
@@ -29,13 +23,8 @@ interface SearchResult {
   data: Aircraft | Airport;
 }
 
-// ============================================================================
-// FILTER MATCHING
-// ============================================================================
-
 function matchesFilter(value: any, filter: ParsedSearch['filters'][0]): boolean {
   if (value === undefined || value === null) return false;
-  
   const { operator, value: filterValue } = filter;
   
   switch (operator) {
@@ -50,10 +39,7 @@ function matchesFilter(value: any, filter: ParsedSearch['filters'][0]): boolean 
     case 'between':
       if (Array.isArray(filterValue) && typeof value === 'number') {
         const [min, max] = filterValue;
-        if (min > max) {
-          return value >= min || value <= max;
-        }
-        return value >= min && value <= max;
+        return min > max ? (value >= min || value <= max) : (value >= min && value <= max);
       }
       return false;
     default:
@@ -62,32 +48,21 @@ function matchesFilter(value: any, filter: ParsedSearch['filters'][0]): boolean 
 }
 
 function getFieldValue(entity: any, field: string): any {
-  // Handle nested fields and common mappings
   if (field === 'altitude') return entity.position?.altitude;
   if (field === 'speed') return entity.position?.speed;
   if (field === 'heading') return entity.position?.heading;
-  if (field === 'latitude') return entity.position?.latitude;
-  if (field === 'longitude') return entity.position?.longitude;
-  
   return entity[field];
 }
 
 function matchesFilters(entity: any, filters: ParsedSearch['filters']): boolean {
-  return filters.every(filter => {
-    const value = getFieldValue(entity, filter.field);
-    return matchesFilter(value, filter);
-  });
+  return filters.every(f => matchesFilter(getFieldValue(entity, f.field), f));
 }
 
-function matchesFreeText(searchableText: string, terms: string[]): boolean {
+function matchesFreeText(text: string, terms: string[]): boolean {
   if (terms.length === 0) return true;
-  const lower = searchableText.toLowerCase();
-  return terms.some(term => lower.includes(term.toLowerCase()));
+  const lower = text.toLowerCase();
+  return terms.some(t => lower.includes(t.toLowerCase()));
 }
-
-// ============================================================================
-// SEARCH BAR COMPONENT
-// ============================================================================
 
 export function SearchBar() {
   const [query, setQuery] = useState('');
@@ -95,21 +70,21 @@ export function SearchBar() {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [totalMatches, setTotalMatches] = useState(0);
-  const [searchEntityType, setSearchEntityType] = useState<'all' | EntityType>('all');
   
-  const aircraft = useRadarStore((state) => state.aircraft);
-  const airports = useRadarStore((state) => state.airports);
-  const selectEntity = useRadarStore((state) => state.selectEntity);
-  const hoverEntity = useRadarStore((state) => state.hoverEntity);
+  const aircraft = useRadarStore((s) => s.aircraft);
+  const airports = useRadarStore((s) => s.airports);
+  const activeMode = useRadarStore((s) => s.gameState.activeMode);
+  const selectEntity = useRadarStore((s) => s.selectEntity);
+  const hoverEntity = useRadarStore((s) => s.hoverEntity);
+  const setFocusLocation = useRadarStore((s) => s.setFocusLocation);
+  const restoreCamera = useRadarStore((s) => s.restoreCamera);
   
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
-  const resultsRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   
-  // Perform search across all entity types
-  const performSearch = useCallback(async (searchQuery: string) => {
-    if (!searchQuery.trim()) {
+  const performSearch = useCallback(async (q: string) => {
+    if (!q.trim()) {
       setResults([]);
       setShowResults(false);
       return;
@@ -118,37 +93,29 @@ export function SearchBar() {
     setIsSearching(true);
     
     try {
-      // Try NLP search first
-      const response = await fetch('/api/search', {
+      const res = await fetch('/api/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: searchQuery }),
+        body: JSON.stringify({ query: q }),
       });
-      
-      const parsed: ParsedSearch = await response.json();
-      setSearchEntityType(parsed.entityType);
-      
+      const parsed: ParsedSearch = await res.json();
       const searchResults: SearchResult[] = [];
       
-      // Search aircraft
-      if (parsed.entityType === 'all' || parsed.entityType === 'aircraft') {
-        const config = getEntityConfig('aircraft');
-        
-        const matchedAircraft = aircraft.filter(ac => {
-          if (parsed.filters.length > 0 && !matchesFilters(ac, parsed.filters)) {
-            return false;
-          }
+      // Filter by both NLP-detected type AND active mode
+      const shouldSearchAircraft = (activeMode === 'all' || activeMode === 'aircraft') &&
+        (parsed.entityType === 'all' || parsed.entityType === 'aircraft');
+      const shouldSearchAirports = (activeMode === 'all' || activeMode === 'airport') &&
+        (parsed.entityType === 'all' || parsed.entityType === 'airport');
+      
+      if (shouldSearchAircraft) {
+        aircraft.filter(ac => {
+          if (parsed.filters.length > 0 && !matchesFilters(ac, parsed.filters)) return false;
           if (parsed.freeText.length > 0) {
-            const searchable = [ac.callsign, ac.id, ac.originCountry, ac.type, ac.squawk]
-              .filter(Boolean).join(' ');
-            if (!matchesFreeText(searchable, parsed.freeText)) {
-              return false;
-            }
+            const s = [ac.callsign, ac.id, ac.originCountry, ac.type, ac.squawk].filter(Boolean).join(' ');
+            if (!matchesFreeText(s, parsed.freeText)) return false;
           }
           return true;
-        });
-        
-        matchedAircraft.forEach(ac => {
+        }).forEach(ac => {
           searchResults.push({
             type: 'aircraft',
             id: ac.id,
@@ -159,23 +126,15 @@ export function SearchBar() {
         });
       }
       
-      // Search airports
-      if (parsed.entityType === 'all' || parsed.entityType === 'airport') {
-        const matchedAirports = airports.filter(ap => {
-          if (parsed.filters.length > 0 && !matchesFilters(ap, parsed.filters)) {
-            return false;
-          }
+      if (shouldSearchAirports) {
+        airports.filter(ap => {
+          if (parsed.filters.length > 0 && !matchesFilters(ap, parsed.filters)) return false;
           if (parsed.freeText.length > 0) {
-            const searchable = [ap.icao, ap.iata, ap.name, ap.city, ap.country]
-              .filter(Boolean).join(' ');
-            if (!matchesFreeText(searchable, parsed.freeText)) {
-              return false;
-            }
+            const s = [ap.icao, ap.iata, ap.name, ap.city, ap.country].filter(Boolean).join(' ');
+            if (!matchesFreeText(s, parsed.freeText)) return false;
           }
           return true;
-        });
-        
-        matchedAirports.forEach(ap => {
+        }).forEach(ap => {
           searchResults.push({
             type: 'airport',
             id: ap.icao,
@@ -186,138 +145,120 @@ export function SearchBar() {
         });
       }
       
-      // Sort results: prioritize exact matches
-      searchResults.sort((a, b) => {
-        const aExact = a.displayName.toLowerCase() === searchQuery.toLowerCase();
-        const bExact = b.displayName.toLowerCase() === searchQuery.toLowerCase();
-        if (aExact && !bExact) return -1;
-        if (!aExact && bExact) return 1;
-        return 0;
-      });
-      
-      setTotalMatches(searchResults.length);
-      setResults(searchResults.slice(0, 50));
+      setResults(searchResults.slice(0, 30));
       setShowResults(true);
       setSelectedIndex(0);
-      
-    } catch (error) {
-      console.error('Search error:', error);
-      // Fallback to simple search
-      const terms = searchQuery.toLowerCase().split(/\s+/);
+    } catch {
+      // Fallback - respect activeMode
+      const terms = q.toLowerCase().split(/\s+/);
       const searchResults: SearchResult[] = [];
       
-      aircraft.forEach(ac => {
-        const searchable = [ac.callsign, ac.id, ac.originCountry].filter(Boolean).join(' ');
-        if (matchesFreeText(searchable, terms)) {
-          searchResults.push({
-            type: 'aircraft',
-            id: ac.id,
-            displayName: ac.callsign || ac.id,
-            subtitle: ac.originCountry || 'Unknown',
-            data: ac,
-          });
-        }
-      });
+      if (activeMode === 'all' || activeMode === 'aircraft') {
+        aircraft.forEach(ac => {
+          const s = [ac.callsign, ac.id, ac.originCountry].filter(Boolean).join(' ');
+          if (matchesFreeText(s, terms)) {
+            searchResults.push({ type: 'aircraft', id: ac.id, displayName: ac.callsign || ac.id, subtitle: ac.originCountry || 'Unknown', data: ac });
+          }
+        });
+      }
       
-      airports.forEach(ap => {
-        const searchable = [ap.icao, ap.iata, ap.name, ap.city, ap.country].filter(Boolean).join(' ');
-        if (matchesFreeText(searchable, terms)) {
-          searchResults.push({
-            type: 'airport',
-            id: ap.icao,
-            displayName: ap.iata || ap.icao,
-            subtitle: ap.name || ap.city,
-            data: ap,
-          });
-        }
-      });
+      if (activeMode === 'all' || activeMode === 'airport') {
+        airports.forEach(ap => {
+          const s = [ap.icao, ap.iata, ap.name, ap.city, ap.country].filter(Boolean).join(' ');
+          if (matchesFreeText(s, terms)) {
+            searchResults.push({ type: 'airport', id: ap.icao, displayName: ap.iata || ap.icao, subtitle: ap.name || ap.city, data: ap });
+          }
+        });
+      }
       
-      setTotalMatches(searchResults.length);
-      setResults(searchResults.slice(0, 50));
+      setResults(searchResults.slice(0, 30));
       setShowResults(true);
       setSelectedIndex(0);
     } finally {
       setIsSearching(false);
     }
-  }, [aircraft, airports]);
+  }, [aircraft, airports, activeMode]);
   
-  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const value = e.target.value;
-    setQuery(value);
-    
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-    }
-    
-    debounceRef.current = setTimeout(() => {
-      performSearch(value);
-    }, 300);
+  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setQuery(e.target.value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => performSearch(e.target.value), 300);
   }, [performSearch]);
   
-  const handleResultClick = useCallback((result: SearchResult) => {
-    selectEntity({ type: result.type, id: result.id });
+  // Re-search when mode changes
+  useEffect(() => {
+    if (query.trim()) {
+      performSearch(query);
+    }
+  }, [activeMode]); // eslint-disable-line react-hooks/exhaustive-deps
+  
+  const handleSelect = useCallback((r: SearchResult) => {
+    // For aircraft: selectEntity triggers chase/follow view animation in CameraController
+    // For airports: set focus location to pan camera
+    if (r.type === 'aircraft') {
+      selectEntity({ type: r.type, id: r.id });
+    } else if (r.type === 'airport') {
+      const ap = r.data as Airport;
+      setFocusLocation({ lat: ap.lat, lon: ap.lon });
+      selectEntity({ type: r.type, id: r.id });
+    } else {
+      selectEntity({ type: r.type, id: r.id });
+    }
     setShowResults(false);
     setQuery('');
-  }, [selectEntity]);
+  }, [selectEntity, setFocusLocation]);
   
-  // Close results when clicking outside
   useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (inputRef.current && !inputRef.current.contains(e.target as Node)) {
+    const onClick = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setShowResults(false);
       }
     };
-    document.addEventListener('click', handleClick);
-    return () => document.removeEventListener('click', handleClick);
+    document.addEventListener('click', onClick);
+    return () => document.removeEventListener('click', onClick);
   }, []);
   
-  // "/" key to focus search
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        return;
-      }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (e.key === '/') {
         e.preventDefault();
         inputRef.current?.focus();
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
   }, []);
   
-  // Scroll selected item into view and preview
   useEffect(() => {
-    if (resultsRef.current && results.length > 0) {
-      const selectedEl = resultsRef.current.querySelector(`[data-index="${selectedIndex}"]`);
-      if (selectedEl) {
-        selectedEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-      }
-      const selectedResult = results[selectedIndex];
-      if (selectedResult && showResults) {
-        hoverEntity({ type: selectedResult.type, id: selectedResult.id });
+    if (results.length > 0 && showResults) {
+      const r = results[selectedIndex];
+      if (r) {
+        hoverEntity({ type: r.type, id: r.id });
+        
+        // Focus camera on the entity location
+        if (r.type === 'aircraft') {
+          const ac = r.data as Aircraft;
+          setFocusLocation({ lat: ac.position.latitude, lon: ac.position.longitude, alt: ac.position.altitude });
+        } else if (r.type === 'airport') {
+          const ap = r.data as Airport;
+          setFocusLocation({ lat: ap.lat, lon: ap.lon });
+        }
       }
     }
-  }, [selectedIndex, results, showResults, hoverEntity]);
+  }, [selectedIndex, results, showResults, hoverEntity, setFocusLocation]);
   
-  // Clear hover when results close
   useEffect(() => {
     if (!showResults) {
       hoverEntity(null);
+      restoreCamera();
     }
-  }, [showResults, hoverEntity]);
+  }, [showResults, hoverEntity, restoreCamera]);
   
-  const handleTextareaKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && results.length > 0) {
       e.preventDefault();
-      if (results.length > 0 && selectedIndex >= 0) {
-        const selected = results[selectedIndex];
-        if (selected) {
-          selectEntity({ type: selected.type, id: selected.id });
-          setShowResults(false);
-          setQuery('');
-        }
-      }
+      handleSelect(results[selectedIndex]);
     } else if (e.key === 'ArrowDown' && showResults) {
       e.preventDefault();
       setSelectedIndex(i => Math.min(i + 1, results.length - 1));
@@ -327,126 +268,47 @@ export function SearchBar() {
     } else if (e.key === 'Escape') {
       setShowResults(false);
     }
-  }, [results, selectedIndex, selectEntity, showResults]);
-  
-  // Get entity type icon
-  const getTypeIcon = (type: EntityType): string => {
-    return getEntityConfig(type).icon;
-  };
-  
-  // Get entity type color
-  const getTypeColor = (type: EntityType): string => {
-    return getEntityConfig(type).color;
-  };
+  }, [results, selectedIndex, showResults, handleSelect]);
 
   return (
-    <div className="relative min-w-[280px] w-[280px]">
-      {/* Results panel - expands upward */}
-      <div 
-        className={`absolute bottom-full left-0 right-0 mb-1 transition-all duration-200 ease-out origin-bottom ${
-          showResults && (results.length > 0 || (query && !isSearching)) 
-            ? 'opacity-100 scale-y-100' 
-            : 'opacity-0 scale-y-0 pointer-events-none'
-        }`}
-      >
-        <div className="bg-black/95 border border-[#1a1a1a] backdrop-blur-sm">
-          {/* Results header */}
-          {results.length > 0 && (
-            <div className="px-3 py-1.5 border-b border-[#1a1a1a] flex items-center justify-between">
-              <span className="text-[9px] text-[#666]">
-                {totalMatches > results.length 
-                  ? `Showing ${results.length} of ${totalMatches}`
-                  : `${results.length} result${results.length !== 1 ? 's' : ''}`
-                }
-                {searchEntityType !== 'all' && (
-                  <span className="ml-1 text-[#00ff88]">
-                    [{searchEntityType.toUpperCase()}]
-                  </span>
-                )}
-              </span>
-              <span className="text-[8px] text-[#444]">↑↓ · Enter</span>
-            </div>
-          )}
-          
-          {/* Scrollable results list */}
-          {results.length > 0 && (
-            <div 
-              ref={resultsRef}
-              className="max-h-[320px] overflow-y-auto scrollbar-thin scrollbar-thumb-[#333] scrollbar-track-transparent"
+    <div ref={containerRef} className="relative w-full">
+      {/* Results dropdown - expands upward */}
+      {showResults && results.length > 0 && (
+        <div className="absolute bottom-full left-0 right-0 mb-1 bg-black/95 border border-[#1a1a1a] max-h-[300px] overflow-y-auto custom-scrollbar">
+          {results.map((r, i) => (
+            <div
+              key={`${r.type}-${r.id}`}
+              onClick={() => handleSelect(r)}
+              className={`px-3 py-2 cursor-pointer text-[10px] border-b border-[#0a0a0a] last:border-0 ${
+                i === selectedIndex ? 'bg-[#00ff88]/10' : 'hover:bg-[#111]'
+              }`}
             >
-              {results.map((result, index) => (
-                <div
-                  key={`${result.type}-${result.id}`}
-                  data-index={index}
-                  onClick={() => handleResultClick(result)}
-                  className={`px-3 py-2 cursor-pointer border-b border-[#0a0a0a] last:border-0 transition-colors ${
-                    index === selectedIndex 
-                      ? 'bg-[#00ff88]/10 border-l-2 border-l-[#00ff88]' 
-                      : 'hover:bg-[#111] border-l-2 border-l-transparent'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span 
-                        className="text-[10px]"
-                        style={{ color: getTypeColor(result.type) }}
-                      >
-                        {getTypeIcon(result.type)}
-                      </span>
-                      <span className="text-[11px] font-medium text-white">
-                        {result.displayName}
-                      </span>
-                      <span className="text-[9px] font-mono text-[#666]">
-                        {result.type === 'aircraft' ? result.id.toUpperCase() : result.id}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="text-[9px] text-[#555] mt-0.5 pl-5">
-                    {result.subtitle}
-                  </div>
-                </div>
-              ))}
+              <div className="flex items-center gap-2">
+                <span style={{ color: getEntityConfig(r.type).color }}>{getEntityConfig(r.type).icon}</span>
+                <span className="text-white">{r.displayName}</span>
+                <span className="text-[#555] font-mono">{r.id.toUpperCase()}</span>
+              </div>
+              <div className="text-[#444] mt-0.5 pl-5">{r.subtitle}</div>
             </div>
-          )}
-          
-          {/* No results message */}
-          {results.length === 0 && query && !isSearching && (
-            <div className="p-4 text-center">
-              <p className="text-[#444] text-[10px]">No results found for</p>
-              <p className="text-[#666] text-[11px] font-mono mt-1">"{query}"</p>
-            </div>
-          )}
+          ))}
         </div>
-      </div>
+      )}
       
-      {/* Search input box */}
-      <div className="bg-black/90 border border-[#1a1a1a]">
-        <div className="border-b border-[#1a1a1a] px-3 py-2 text-[10px] text-[#666] flex items-center justify-between">
-          <span>SEARCH <span className="text-[#444]">[/]</span></span>
-          {isSearching && <span className="text-[#00ff88] animate-pulse">PROCESSING...</span>}
-        </div>
-        <div className="p-3">
-          <div className="relative">
-            <textarea
-              ref={inputRef}
-              value={query}
-              onChange={handleInputChange}
-              onKeyDown={handleTextareaKeyDown}
-              onFocus={() => query && setShowResults(true)}
-              placeholder="Search aircraft, airports, missiles..."
-              rows={2}
-              className="w-full bg-black border border-[#333] px-3 py-2 text-[11px] text-white placeholder-[#444] focus:border-[#00ff88]/50 focus:outline-none font-mono resize-none overflow-hidden"
-            />
-            <div className="absolute right-2 bottom-2 text-[8px] text-[#333] flex items-center gap-1">
-              <span className="text-[#444]">⏎</span> search
-            </div>
-          </div>
-        </div>
-        
-        <div className="border-t border-[#1a1a1a] px-3 py-1.5 text-[8px] text-[#333]">
-          NLP powered · Try "airports in Germany" or "flights above 35k ft"
-        </div>
-      </div>
+      {/* Input */}
+      <input
+        ref={inputRef}
+        type="text"
+        value={query}
+        onChange={handleChange}
+        onKeyDown={handleKeyDown}
+        onFocus={() => query && setShowResults(true)}
+        placeholder="search [/]"
+        className="w-full bg-transparent border border-[#333] px-3 py-1.5 text-[10px] text-white placeholder-[#444] focus:border-[#00ff88]/50 focus:outline-none"
+      />
+      
+      {isSearching && (
+        <div className="absolute right-2 top-1/2 -translate-y-1/2 text-[8px] text-[#00ff88]">...</div>
+      )}
     </div>
   );
 }

@@ -76,9 +76,18 @@ interface Airport {
 // INTERACTION STATE
 // ============================================================================
 
+interface FocusLocation {
+  lat: number;
+  lon: number;
+  alt?: number;
+}
+
 interface GameState {
   hoveredEntity: EntityRef | null;
   selectedEntity: EntityRef | null;
+  focusLocation: FocusLocation | null;
+  restoreCameraFlag: number; // Increment to trigger camera restore
+  activeMode: 'all' | 'aircraft' | 'airport' | 'missile';
   isPlaying: boolean;
   isPaused: boolean;
   controlledAircraft: Set<string>;
@@ -109,6 +118,9 @@ interface Store {
   // Entity actions
   hoverEntity: (ref: EntityRef | null) => void;
   selectEntity: (ref: EntityRef | null) => void;
+  setFocusLocation: (loc: FocusLocation | null) => void;
+  restoreCamera: () => void;
+  setActiveMode: (mode: 'all' | 'aircraft' | 'airport' | 'missile') => void;
   
   // Entity lookup
   getAircraftById: (id: string) => Aircraft | undefined;
@@ -155,6 +167,9 @@ export const useRadarStore = create<Store>((set, get) => ({
   gameState: {
     hoveredEntity: null,
     selectedEntity: null,
+    focusLocation: null,
+    restoreCameraFlag: 0,
+    activeMode: 'all',
     isPlaying: false,
     isPaused: false,
     controlledAircraft: new Set(),
@@ -170,6 +185,18 @@ export const useRadarStore = create<Store>((set, get) => ({
   
   selectEntity: (ref) => set((s) => ({
     gameState: { ...s.gameState, selectedEntity: ref },
+  })),
+  
+  setFocusLocation: (loc) => set((s) => ({
+    gameState: { ...s.gameState, focusLocation: loc },
+  })),
+  
+  restoreCamera: () => set((s) => ({
+    gameState: { ...s.gameState, restoreCameraFlag: s.gameState.restoreCameraFlag + 1, focusLocation: null },
+  })),
+  
+  setActiveMode: (mode) => set((s) => ({
+    gameState: { ...s.gameState, activeMode: mode },
   })),
   
   // Entity lookup

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useThree, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useRadarStore, Aircraft } from '@/store/gameStore';
@@ -38,10 +38,14 @@ export function AircraftLayer() {
   const displayPathFor = hoveredAircraft || selectedAircraft;
   
   // Refs to track current selection/hover for use in useFrame (avoids stale closures)
-  const selectedRef = useRef<string | null>(null);
-  const hoveredRef = useRef<string | null>(null);
-  selectedRef.current = selectedAircraft;
-  hoveredRef.current = hoveredAircraft;
+  const selectedRef = useRef<string | null>(selectedAircraft);
+  const hoveredRef = useRef<string | null>(hoveredAircraft);
+  
+  // Update refs in effect to avoid lint errors
+  useEffect(() => {
+    selectedRef.current = selectedAircraft;
+    hoveredRef.current = hoveredAircraft;
+  }, [selectedAircraft, hoveredAircraft]);
   
   // Visible aircraft state - updated on camera move
   const [visibleAircraft, setVisibleAircraft] = useState<Aircraft[]>([]);
@@ -151,11 +155,34 @@ export function AircraftLayer() {
     return () => clearInterval(interval);
   }, [removeAircraft, selectedAircraft, hoveredAircraft]);
   
+  // Ensure selected/hovered aircraft is always rendered even if not in visibleAircraft yet
+  const aircraftToRender = useMemo(() => {
+    const result = [...visibleAircraft];
+    
+    // Add selected aircraft if not already in list
+    if (selectedAircraft) {
+      const selectedAc = aircraft.find(a => a.id === selectedAircraft);
+      if (selectedAc && !result.some(a => a.id === selectedAircraft)) {
+        result.push(selectedAc);
+      }
+    }
+    
+    // Add hovered aircraft if not already in list
+    if (hoveredAircraft) {
+      const hoveredAc = aircraft.find(a => a.id === hoveredAircraft);
+      if (hoveredAc && !result.some(a => a.id === hoveredAircraft)) {
+        result.push(hoveredAc);
+      }
+    }
+    
+    return result;
+  }, [visibleAircraft, selectedAircraft, hoveredAircraft, aircraft]);
+  
   return (
     <group>
       {displayPathFor && <FlightPath icao24={displayPathFor} />}
       
-      {visibleAircraft.map((ac) => (
+      {aircraftToRender.map((ac) => (
         <AircraftDot key={ac.id} aircraft={ac} onClick={() => selectEntity({ type: 'aircraft', id: ac.id })} />
       ))}
     </group>

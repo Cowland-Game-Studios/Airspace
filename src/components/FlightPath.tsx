@@ -24,8 +24,8 @@ function interpolateOnGlobe(p1: THREE.Vector3, p2: THREE.Vector3, t: number, alt
   return result;
 }
 
-// Animation timing constants
-const TOTAL_ANIMATION_TIME = 0.8; // Total animation duration in seconds
+// Animation timing constants (matches EntityInfoPanel at 300ms)
+const TOTAL_ANIMATION_TIME = 0.3; // Total animation duration in seconds
 const TRAVELED_RATIO = 0.5; // First half for traveled path
 const PREDICTED_RATIO = 0.5; // Second half for predicted path
 
@@ -197,17 +197,25 @@ function CombinedFlightPath({
     }
   });
 
+  const traveledLine = useMemo(() => {
+    if (!traveled.geometry || !traveled.material) return null;
+    return new THREE.Line(traveled.geometry, traveled.material);
+  }, [traveled.geometry, traveled.material]);
+  
+  const predictedLine = useMemo(() => {
+    if (!predicted.geometry || !predicted.material) return null;
+    const line = new THREE.Line(predicted.geometry, predicted.material);
+    line.computeLineDistances();
+    return line;
+  }, [predicted.geometry, predicted.material]);
+  
   return (
     <group>
       {/* Solid green line: origin → plane */}
-      {traveled.geometry && traveled.material && (
-        <line geometry={traveled.geometry} material={traveled.material} />
-      )}
+      {traveledLine && <primitive object={traveledLine} />}
       
       {/* Dotted green line: plane → destination */}
-      {predicted.geometry && predicted.material && (
-        <line geometry={predicted.geometry} material={predicted.material} />
-      )}
+      {predictedLine && <primitive object={predictedLine} />}
     </group>
   );
 }
@@ -282,7 +290,7 @@ function PredictedPathOnly({ aircraft }: { aircraft: Aircraft }) {
   useFrame((_, delta) => {
     if (!geometry || totalPoints < 2) return;
     
-    animationProgress.current = Math.min(animationProgress.current + delta / 0.4, 1);
+    animationProgress.current = Math.min(animationProgress.current + delta / 0.3, 1);
     const t = animationProgress.current;
     
     // Ease-out only at the end
@@ -299,19 +307,29 @@ function PredictedPathOnly({ aircraft }: { aircraft: Aircraft }) {
     geometry.setDrawRange(0, visibleCount);
   });
 
-  if (!geometry || !material) return null;
+  const lineObject = useMemo(() => {
+    if (!geometry || !material) return null;
+    const line = new THREE.Line(geometry, material);
+    line.computeLineDistances();
+    return line;
+  }, [geometry, material]);
+
+  if (!lineObject) return null;
   
-  return <line geometry={geometry} material={material} />;
+  return <primitive object={lineObject} />;
 }
 
 export function FlightPath({ icao24 }: { icao24: string | null }) {
   const fetchFlightTrack = useRadarStore((state) => state.fetchFlightTrack);
-  const hoveredAircraft = useRadarStore((state) => state.gameState.hoveredAircraft);
-  const selectedAircraft = useRadarStore((state) => state.gameState.selectedAircraft);
+  const hoveredEntity = useRadarStore((state) => state.gameState.hoveredEntity);
+  const selectedEntity = useRadarStore((state) => state.gameState.selectedEntity);
   const aircraft = useRadarStore((state) => state.aircraft);
   const flightTracks = useRadarStore((state) => state.flightTracks);
   
-  const displayId = icao24 || hoveredAircraft || selectedAircraft;
+  // Only show flight path for aircraft entities
+  const hoveredAircraftId = hoveredEntity?.type === 'aircraft' ? hoveredEntity.id : null;
+  const selectedAircraftId = selectedEntity?.type === 'aircraft' ? selectedEntity.id : null;
+  const displayId = icao24 || hoveredAircraftId || selectedAircraftId;
   const currentAircraft = displayId ? aircraft.find(a => a.id === displayId) : undefined;
   
   // Get track data directly from the Map (stable reference)

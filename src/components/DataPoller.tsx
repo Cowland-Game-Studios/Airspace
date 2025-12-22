@@ -95,7 +95,8 @@ export function DataPoller() {
   const setAircraft = useRadarStore((state) => state.setAircraft);
   const aircraft = useRadarStore((state) => state.aircraft);
   const viewportBounds = useRadarStore((state) => state.viewportBounds);
-  const selectedAircraft = useRadarStore((state) => state.gameState.selectedAircraft);
+  const selectedEntity = useRadarStore((state) => state.gameState.selectedEntity);
+  const selectedAircraft = selectedEntity?.type === 'aircraft' ? selectedEntity.id : null;
   const locationReady = useRadarStore((state) => state.locationReady);
   
   const hasInitialized = useRef(false);

@@ -20,6 +20,7 @@ function latLonToVector3(lat: number, lon: number): THREE.Vector3 {
 function LargeAirportsInstanced({ airports }: { airports: Airport[] }) {
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const hoverEntity = useRadarStore((state) => state.hoverEntity);
+  const selectEntity = useRadarStore((state) => state.selectEntity);
   const hoveredEntity = useRadarStore((state) => state.gameState.hoveredEntity);
   const hoveredAirport = hoveredEntity?.type === 'airport' ? hoveredEntity.id : null;
   
@@ -81,6 +82,13 @@ function LargeAirportsInstanced({ airports }: { airports: Airport[] }) {
     document.body.style.cursor = 'auto';
   };
   
+  const handleClick = (e: ThreeEvent<MouseEvent>) => {
+    e.stopPropagation();
+    if (e.instanceId !== undefined && indexToIcao[e.instanceId]) {
+      selectEntity({ type: 'airport', id: indexToIcao[e.instanceId] });
+    }
+  };
+  
   if (airports.length === 0) return null;
   
   return (
@@ -89,6 +97,7 @@ function LargeAirportsInstanced({ airports }: { airports: Airport[] }) {
       args={[undefined, undefined, airports.length]}
       onPointerOver={handlePointerOver}
       onPointerOut={handlePointerOut}
+      onClick={handleClick}
     >
       <planeGeometry args={[0.0025, 0.0025]} />
       <meshBasicMaterial 
@@ -107,6 +116,7 @@ function SmallAirportsInstanced({ airports }: { airports: Airport[] }) {
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const { camera } = useThree();
   const hoverEntity = useRadarStore((state) => state.hoverEntity);
+  const selectEntity = useRadarStore((state) => state.selectEntity);
   const hoveredEntity = useRadarStore((state) => state.gameState.hoveredEntity);
   const hoveredAirport = hoveredEntity?.type === 'airport' ? hoveredEntity.id : null;
   
@@ -179,6 +189,13 @@ function SmallAirportsInstanced({ airports }: { airports: Airport[] }) {
     document.body.style.cursor = 'auto';
   };
   
+  const handleClick = (e: ThreeEvent<MouseEvent>) => {
+    e.stopPropagation();
+    if (e.instanceId !== undefined && indexToIcao[e.instanceId]) {
+      selectEntity({ type: 'airport', id: indexToIcao[e.instanceId] });
+    }
+  };
+  
   if (airports.length === 0) return null;
   
   return (
@@ -187,6 +204,7 @@ function SmallAirportsInstanced({ airports }: { airports: Airport[] }) {
       args={[undefined, undefined, airports.length]}
       onPointerOver={handlePointerOver}
       onPointerOut={handlePointerOut}
+      onClick={handleClick}
     >
       <circleGeometry args={[0.001, 8]} />
       <meshBasicMaterial 

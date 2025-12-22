@@ -202,28 +202,20 @@ function AirportInfoContent({
 }
 
 // ============================================================================
-// ANIMATION STATES
-// ============================================================================
-
-type AnimationState = 'hidden' | 'entering' | 'visible' | 'exiting';
-
-const ANIMATION_DURATION = 300; // ms
-
-// ============================================================================
-// ENTITY INFO PANEL (Universal Wrapper with Animations)
+// ENTITY INFO PANEL (Simplified animation - no state machine)
 // ============================================================================
 
 interface EntityInfoPanelProps {
   onClose?: () => void;
 }
 
-export function EntityInfoPanel({ onClose }: EntityInfoPanelProps) {
+export function EntityInfoPanel({ onClose: _onClose }: EntityInfoPanelProps) {
   const contentRef = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState(0);
-  const [animState, setAnimState] = useState<AnimationState>('hidden');
-  const animTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [isVisible, setIsVisible] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
   
-  // Store the displayed entity (persists during exit animation)
+  // Store displayed entity for exit animation (using state instead of refs)
   const [displayedRef, setDisplayedRef] = useState<EntityRef | null>(null);
   const [displayedEntity, setDisplayedEntity] = useState<Aircraft | Airport | null>(null);
   
@@ -233,71 +225,50 @@ export function EntityInfoPanel({ onClose }: EntityInfoPanelProps) {
   const selectEntity = useRadarStore((s) => s.selectEntity);
   const getEntityByRef = useRadarStore((s) => s.getEntityByRef);
   
-  // The "target" entity we want to display (or null to hide)
+  // The "target" entity we want to display
   const targetRef = hoveredEntity || selectedEntity;
   const targetEntity = getEntityByRef(targetRef);
   
-  // Handle animation state transitions
+  // Handle visibility changes
   useEffect(() => {
-    // Clear any pending timeout
-    if (animTimeoutRef.current) {
-      clearTimeout(animTimeoutRef.current);
-      animTimeoutRef.current = null;
-    }
-    
     const hasTarget = targetRef !== null && targetEntity !== undefined;
-    const hasDisplayed = displayedRef !== null;
-    const isSameEntity = hasTarget && hasDisplayed && 
-      targetRef?.type === displayedRef?.type && targetRef?.id === displayedRef?.id;
     
     if (hasTarget) {
-      if (!hasDisplayed || !isSameEntity) {
-        // New entity to display - interrupt any exit and start entering
-        setDisplayedRef(targetRef);
-        setDisplayedEntity(targetEntity as Aircraft | Airport);
-        setAnimState('entering');
-        
-        animTimeoutRef.current = setTimeout(() => {
-          setAnimState('visible');
-        }, ANIMATION_DURATION);
-      }
-      // If same entity, keep current state (visible or entering)
-    } else {
-      // No target - start exit animation if we have content
-      if (hasDisplayed && animState !== 'exiting' && animState !== 'hidden') {
-        setAnimState('exiting');
-        
-        animTimeoutRef.current = setTimeout(() => {
-          setAnimState('hidden');
-          setDisplayedRef(null);
-          setDisplayedEntity(null);
-        }, ANIMATION_DURATION);
-      }
+      // Immediately show with new entity
+      setDisplayedRef(targetRef);
+      setDisplayedEntity(targetEntity as Aircraft | Airport);
+      setIsVisible(true);
+      setIsAnimating(false);
+    } else if (displayedRef !== null && !isAnimating) {
+      // Start exit animation
+      setIsAnimating(true);
+      setIsVisible(false);
+      
+      // Clear after animation
+      const timeout = setTimeout(() => {
+        setDisplayedRef(null);
+        setDisplayedEntity(null);
+        setIsAnimating(false);
+      }, 300);
+      
+      return () => clearTimeout(timeout);
     }
-    
-    return () => {
-      if (animTimeoutRef.current) {
-        clearTimeout(animTimeoutRef.current);
-      }
-    };
-  }, [targetRef?.type, targetRef?.id, targetEntity, displayedRef, animState]);
+  }, [targetRef, targetEntity, isAnimating, displayedRef]);
   
   // Measure content for height animation
   useEffect(() => {
     if (contentRef.current && displayedEntity) {
       setHeight(contentRef.current.scrollHeight);
     }
-  }, [displayedEntity, displayedRef?.type, displayedRef?.id]);
+  }, [displayedRef?.type, displayedRef?.id, isVisible, displayedEntity]);
   
   const isHovering = hoveredEntity !== null;
   const isSelected = selectedEntity !== null;
   const isHoveringDifferent = isSelected && isHovering && 
     (hoveredEntity?.type !== selectedEntity?.type || hoveredEntity?.id !== selectedEntity?.id);
   
-  // Glow color: yellow when hovering different entity while tracking
   const glowColor = isHoveringDifferent ? 'yellow' as const : 'green' as const;
   
-  // Handle switching/closing
   const handleAction = () => {
     if (isHoveringDifferent && hoveredEntity) {
       selectEntity(hoveredEntity);
@@ -306,12 +277,7 @@ export function EntityInfoPanel({ onClose }: EntityInfoPanelProps) {
     }
   };
   
-  // Get entity type label
   const typeLabel = displayedRef ? getEntityTypeName(displayedRef.type).toUpperCase() : 'ENTITY';
-  
-  // Determine visual state
-  const isVisible = animState === 'entering' || animState === 'visible';
-  const isExiting = animState === 'exiting';
   const showContent = displayedRef !== null && displayedEntity !== null;
   
   return (
@@ -321,10 +287,10 @@ export function EntityInfoPanel({ onClose }: EntityInfoPanelProps) {
         (isHovering && !isSelected ? 'border-dashed' : 'border-solid')}
       style={{ 
         maxHeight: showContent ? '600px' : '0px',
-        opacity: isVisible ? 1 : isExiting ? 0 : 0,
+        opacity: isVisible ? 1 : 0,
         transform: isVisible ? 'translateY(0)' : 'translateY(20px)',
         overflow: 'hidden',
-        pointerEvents: isExiting ? 'none' : 'auto',
+        pointerEvents: isVisible ? 'auto' : 'none',
       }}
     >
       {showContent && (
@@ -336,11 +302,9 @@ export function EntityInfoPanel({ onClose }: EntityInfoPanelProps) {
           >
             <span>{typeLabel}_INFO</span>
             <div className="flex items-center gap-2">
-              {/* Hovering (not tracking anything) - yellow ENTER to track */}
               {isHovering && !isSelected && (
                 <span className="text-[#ffaa00]">[ENTER]</span>
               )}
-              {/* Tracking and hovering different - yellow ENTER to switch */}
               {isSelected && isHoveringDifferent && (
                 <button 
                   onClick={handleAction}
@@ -349,7 +313,6 @@ export function EntityInfoPanel({ onClose }: EntityInfoPanelProps) {
                   [ENTER]
                 </button>
               )}
-              {/* Tracking (not hovering another) - red ESC to cancel */}
               {isSelected && !isHoveringDifferent && (
                 <button 
                   onClick={handleAction}
@@ -361,20 +324,18 @@ export function EntityInfoPanel({ onClose }: EntityInfoPanelProps) {
             </div>
           </div>
           
-          {/* Content with height animation */}
+          {/* Content */}
           <div 
             className="transition-[height] duration-300 ease-out"
             style={{ height: height || 'auto' }}
           >
             <div ref={contentRef} className="p-3 text-[10px]">
-              {/* Render entity-specific content */}
               {displayedRef?.type === 'aircraft' && displayedEntity && (
                 <AircraftInfoContent aircraft={displayedEntity as Aircraft} glowColor={glowColor} />
               )}
               {displayedRef?.type === 'airport' && displayedEntity && (
                 <AirportInfoContent airport={displayedEntity as Airport} glowColor={glowColor} />
               )}
-              {/* Placeholder for other entity types */}
               {displayedRef && !['aircraft', 'airport'].includes(displayedRef.type) && (
                 <div className="text-[#666]">
                   <ScrollingText text={`${typeLabel} info not yet implemented`} glowColor={glowColor} />

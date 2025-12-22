@@ -89,7 +89,7 @@ const aircraftConfig: EntityTypeConfig = {
 const airportConfig: EntityTypeConfig = {
   displayName: 'Airport',
   pluralName: 'Airports',
-  icon: '🏢',
+  icon: '═',
   color: '#ffffff',
   
   searchFields: ['icao', 'iata', 'name', 'city', 'country', 'airportType'],

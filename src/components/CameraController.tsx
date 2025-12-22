@@ -58,9 +58,19 @@ export function CameraController() {
   const controlsRef = useRef<any>(null);
   const { camera } = useThree();
   
-  const selectedId = useRadarStore((state) => state.gameState.selectedAircraft);
+  const selectedEntity = useRadarStore((state) => state.gameState.selectedEntity);
+  const focusLocation = useRadarStore((state) => state.gameState.focusLocation);
+  const restoreCameraFlag = useRadarStore((state) => state.gameState.restoreCameraFlag);
   const aircraft = useRadarStore((state) => state.aircraft);
+  const airports = useRadarStore((state) => state.airports);
   const setLocationReady = useRadarStore((state) => state.setLocationReady);
+  
+  // Get selected IDs by type
+  const selectedAircraftId = selectedEntity?.type === 'aircraft' ? selectedEntity.id : null;
+  const selectedAirportId = selectedEntity?.type === 'airport' ? selectedEntity.id : null;
+  
+  // Backward compat alias
+  const selectedId = selectedAircraftId;
   
   const isAnimating = useRef(false);
   const animationProgress = useRef(0);
@@ -94,7 +104,8 @@ export function CameraController() {
         isShiftHeld.current = true;
         
         // In focused mode: orbit around the aircraft
-        const currentSelectedId = useRadarStore.getState().gameState.selectedAircraft;
+        const currentSelectedEntity = useRadarStore.getState().gameState.selectedEntity;
+        const currentSelectedId = currentSelectedEntity?.type === 'aircraft' ? currentSelectedEntity.id : null;
         if (currentSelectedId) {
           const currentAircraft = useRadarStore.getState().aircraft.find(a => a.id === currentSelectedId);
           if (currentAircraft) {
@@ -192,6 +203,122 @@ export function CameraController() {
     setLocationReady(true);
   }, [initialLocation, camera, setLocationReady]);
   
+  // Focus on a specific location (from search, etc.) - quick pan without zoom change
+  const prevFocusLocation = useRef<{ lat: number; lon: number } | null>(null);
+  const hasSavedForFocus = useRef(false);
+  useEffect(() => {
+    if (!focusLocation || !controlsRef.current) return;
+    
+    // Skip if same location
+    if (prevFocusLocation.current && 
+        Math.abs(prevFocusLocation.current.lat - focusLocation.lat) < 0.0001 &&
+        Math.abs(prevFocusLocation.current.lon - focusLocation.lon) < 0.0001) {
+      return;
+    }
+    
+    // Save camera position on FIRST focus (before any search navigation)
+    if (!hasSavedForFocus.current && !selectedId) {
+      savedCameraPosition.current.copy(camera.position);
+      savedCameraTarget.current.copy(controlsRef.current.target);
+      hasSavedForFocus.current = true;
+    }
+    
+    prevFocusLocation.current = { lat: focusLocation.lat, lon: focusLocation.lon };
+    
+    // Don't override if we're tracking a selected entity
+    if (selectedId) return;
+    
+    // Animate camera to look at this location while maintaining current distance
+    isAnimating.current = true;
+    isReturningToEarth.current = false;
+    animationProgress.current = 0;
+    
+    startPosition.current.copy(camera.position);
+    startTarget.current.copy(controlsRef.current.target);
+    
+    const currentDistance = camera.position.length();
+    const targetPoint = latLonToVector3(focusLocation.lat, focusLocation.lon, focusLocation.alt || 0);
+    const cameraDirection = targetPoint.clone().normalize();
+    
+    // Position camera at same distance, looking at the target
+    targetCameraPos.current.copy(cameraDirection.multiplyScalar(currentDistance));
+    targetLookAt.current.set(0, 0, 0);
+  }, [focusLocation, camera, selectedId]);
+  
+  // Restore camera to saved position (triggered by ESC during search, etc.)
+  const prevRestoreFlag = useRef(0);
+  useEffect(() => {
+    if (restoreCameraFlag > 0 && restoreCameraFlag !== prevRestoreFlag.current && controlsRef.current) {
+      prevRestoreFlag.current = restoreCameraFlag;
+      
+      // Reset focus state
+      prevFocusLocation.current = null;
+      hasSavedForFocus.current = false;
+      
+      // Don't restore if we're tracking something
+      if (selectedId || selectedAirportId) return;
+      
+      // Animate back to saved position
+      if (savedCameraPosition.current.lengthSq() > 0) {
+        isAnimating.current = true;
+        isReturningToEarth.current = true;
+        animationProgress.current = 0;
+        
+        startPosition.current.copy(camera.position);
+        startTarget.current.copy(controlsRef.current.target);
+        
+        targetCameraPos.current.copy(savedCameraPosition.current);
+        targetLookAt.current.copy(savedCameraTarget.current);
+      }
+    }
+  }, [restoreCameraFlag, camera, selectedId, selectedAirportId]);
+  
+  // Handle airport selection - zoom to airport
+  const prevSelectedAirportId = useRef<string | null>(null);
+  useEffect(() => {
+    if (selectedAirportId && selectedAirportId !== prevSelectedAirportId.current) {
+      const airport = airports.find(a => a.icao === selectedAirportId);
+      if (airport && controlsRef.current) {
+        // Save camera state if not already tracking something
+        if (!prevSelectedId.current && !prevSelectedAirportId.current) {
+          savedCameraPosition.current.copy(camera.position);
+          savedCameraTarget.current.copy(controlsRef.current.target);
+        }
+        
+        isAnimating.current = true;
+        isReturningToEarth.current = false;
+        animationProgress.current = 0;
+        
+        startPosition.current.copy(camera.position);
+        startTarget.current.copy(controlsRef.current.target);
+        
+        const targetPoint = latLonToVector3(airport.lat, airport.lon, 0);
+        const cameraDirection = targetPoint.clone().normalize();
+        
+        // Zoom in close to the airport
+        targetCameraPos.current.copy(cameraDirection.multiplyScalar(CITY_ZOOM_DISTANCE));
+        targetLookAt.current.set(0, 0, 0);
+      }
+    }
+    
+    // Handle deselection - return to previous position
+    if (!selectedAirportId && prevSelectedAirportId.current && !selectedId && controlsRef.current) {
+      isAnimating.current = true;
+      isReturningToEarth.current = true;
+      animationProgress.current = 0;
+      
+      startPosition.current.copy(camera.position);
+      startTarget.current.copy(controlsRef.current.target);
+      
+      if (savedCameraPosition.current.lengthSq() > 0) {
+        targetCameraPos.current.copy(savedCameraPosition.current);
+        targetLookAt.current.copy(savedCameraTarget.current);
+      }
+    }
+    
+    prevSelectedAirportId.current = selectedAirportId;
+  }, [selectedAirportId, airports, camera, selectedId]);
+  
   useEffect(() => {
     if (selectedId && selectedId !== prevSelectedId.current) {
       const selectedAircraft = aircraft.find(a => a.id === selectedId);
@@ -217,38 +344,24 @@ export function CameraController() {
         // Get aircraft forward direction and up vector
         const forward = getAircraftForwardVector(latitude, longitude, heading);
         const up = aircraftPos.clone().normalize();
-        const right = new THREE.Vector3().crossVectors(forward, up).normalize();
         
         // Calculate path extent for framing (in degrees)
         const speedDegPerMin = (speed / 60) / 60;
-        const pathExtentPast = speedDegPerMin * 15;
-        const pathExtentFuture = speedDegPerMin * 10;
-        
-        // Convert to 3D space distance
-        const pathLength3D = (pathExtentPast + pathExtentFuture) * 0.017;
+        const pathLength3D = (speedDegPerMin * 25) * 0.017; // 15 min past + 10 min future
         
         // Camera distance: close enough to see detail, far enough to see full path
         const viewDistance = Math.max(0.08, Math.min(0.25, pathLength3D * 1.5 + 0.05));
         
-        // Calculate center point between past and future paths
-        const pathCenterOffset = forward.clone().multiplyScalar(
-          (pathExtentFuture - pathExtentPast) * 0.01 * 0.3
-        );
-        const pathCenter = aircraftPos.clone().add(pathCenterOffset);
-        
-        // Position camera at a slanted angle behind and above the aircraft
+        // Position camera directly behind and above the aircraft (centered view)
         const cameraOffset = new THREE.Vector3()
-          .add(up.clone().multiplyScalar(viewDistance * 0.7))
-          .add(right.clone().multiplyScalar(viewDistance * 0.4))
-          .add(forward.clone().multiplyScalar(-viewDistance * 0.5));
+          .add(up.clone().multiplyScalar(viewDistance * 0.6))
+          .add(forward.clone().multiplyScalar(-viewDistance * 0.8));
         
-        const cameraPos = pathCenter.clone().add(cameraOffset);
+        const cameraPos = aircraftPos.clone().add(cameraOffset);
         
-        // Look at a point slightly ahead of the aircraft
-        const lookAtPos = aircraftPos.clone().add(forward.clone().multiplyScalar(viewDistance * 0.3));
-        
+        // Look directly at the aircraft (plane centered)
         targetCameraPos.current.copy(cameraPos);
-        targetLookAt.current.copy(lookAtPos);
+        targetLookAt.current.copy(aircraftPos);
       }
     }
     
