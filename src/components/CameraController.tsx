@@ -510,6 +510,11 @@ export function CameraController() {
       dampingFactor={0.1}
       enableDamping
       onChange={handleControlsChange}
+      // Mobile touch support
+      touches={{
+        ONE: 1, // TOUCH.ROTATE
+        TWO: 2, // TOUCH.DOLLY_PAN (pinch to zoom)
+      }}
     />
   );
 }

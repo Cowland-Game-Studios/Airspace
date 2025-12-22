@@ -21,12 +21,12 @@ function LoadingFallback() {
 
 export function Scene() {
   return (
-    <div className="w-screen h-screen absolute inset-0 overflow-hidden">
+    <div className="w-screen h-screen absolute inset-0 overflow-hidden" style={{ touchAction: 'none' }}>
       <Canvas
         gl={{ antialias: true, alpha: false }}
         dpr={[1, 2]}
         resize={{ scroll: false, debounce: { scroll: 50, resize: 50 } }}
-        style={{ width: '100%', height: '100%' }}
+        style={{ width: '100%', height: '100%', touchAction: 'none' }}
       >
         <color attach="background" args={['#000000']} />
         <PerspectiveCamera makeDefault position={[0, 0, 2.5]} fov={60} />
