@@ -79,6 +79,11 @@ export function CameraController() {
   const targetCameraPos = useRef(new THREE.Vector3());
   const targetLookAt = useRef(new THREE.Vector3());
   
+  // Multi-phase animation for fly-over effect
+  const animationPhase = useRef<'direct' | 'flyover'>('direct');
+  const midpointCameraPos = useRef(new THREE.Vector3());
+  const FLYOVER_ZOOM_OUT_DISTANCE = 2.2; // Distance to zoom out to during flyover
+  
   const currentTarget = useRef(new THREE.Vector3(0, 0, 0));
   const currentCameraOffset = useRef(new THREE.Vector3());
   
@@ -203,7 +208,7 @@ export function CameraController() {
     setLocationReady(true);
   }, [initialLocation, camera, setLocationReady]);
   
-  // Focus on a specific location (from search, etc.) - quick pan without zoom change
+  // Focus on a specific location (from search, etc.) - flyover animation
   const prevFocusLocation = useRef<{ lat: number; lon: number } | null>(null);
   const hasSavedForFocus = useRef(false);
   useEffect(() => {
@@ -223,26 +228,44 @@ export function CameraController() {
       hasSavedForFocus.current = true;
     }
     
+    const hadPrevLocation = prevFocusLocation.current !== null;
     prevFocusLocation.current = { lat: focusLocation.lat, lon: focusLocation.lon };
     
     // Don't override if we're tracking a selected entity
     if (selectedId) return;
     
-    // Animate camera to look at this location while maintaining current distance
+    const currentDistance = camera.position.length();
+    const targetPoint = latLonToVector3(focusLocation.lat, focusLocation.lon, focusLocation.alt || 0);
+    const cameraDirection = targetPoint.clone().normalize();
+    const finalCameraPos = cameraDirection.clone().multiplyScalar(currentDistance);
+    
+    // Calculate distance between current and target positions
+    const travelDistance = camera.position.distanceTo(finalCameraPos);
+    
+    // Use flyover animation if moving a significant distance (and not first focus)
+    const useFlyover = hadPrevLocation && travelDistance > 0.3;
+    
     isAnimating.current = true;
     isReturningToEarth.current = false;
     animationProgress.current = 0;
     
     startPosition.current.copy(camera.position);
     startTarget.current.copy(controlsRef.current.target);
-    
-    const currentDistance = camera.position.length();
-    const targetPoint = latLonToVector3(focusLocation.lat, focusLocation.lon, focusLocation.alt || 0);
-    const cameraDirection = targetPoint.clone().normalize();
-    
-    // Position camera at same distance, looking at the target
-    targetCameraPos.current.copy(cameraDirection.multiplyScalar(currentDistance));
+    targetCameraPos.current.copy(finalCameraPos);
     targetLookAt.current.set(0, 0, 0);
+    
+    if (useFlyover) {
+      // Calculate midpoint for flyover (zoom out, then zoom in)
+      const startDir = camera.position.clone().normalize();
+      const endDir = cameraDirection;
+      const midDir = startDir.clone().add(endDir).normalize();
+      
+      // Midpoint camera position - zoomed out
+      midpointCameraPos.current.copy(midDir.multiplyScalar(FLYOVER_ZOOM_OUT_DISTANCE));
+      animationPhase.current = 'flyover';
+    } else {
+      animationPhase.current = 'direct';
+    }
   }, [focusLocation, camera, selectedId]);
   
   // Restore camera to saved position (triggered by ESC during search, etc.)
@@ -394,19 +417,54 @@ export function CameraController() {
     const selectedAircraft = selectedId ? aircraft.find(a => a.id === selectedId) : null;
     
     if (isAnimating.current) {
-      // Smooth animation over ~1 second
-      animationProgress.current += delta * 1.2;
-      const t = Math.min(animationProgress.current, 1);
-      // Smooth ease-out
-      const eased = 1 - Math.pow(1 - t, 3);
-      
-      camera.position.lerpVectors(startPosition.current, targetCameraPos.current, eased);
-      currentTarget.current.lerpVectors(startTarget.current, targetLookAt.current, eased);
-      controlsRef.current.target.copy(currentTarget.current);
-      
-      if (t >= 1) {
-        isAnimating.current = false;
-        isReturningToEarth.current = false;
+      if (animationPhase.current === 'direct') {
+        // Direct animation (no flyover)
+        animationProgress.current += delta * 1.2;
+        const t = Math.min(animationProgress.current, 1);
+        const eased = 1 - Math.pow(1 - t, 3);
+        
+        camera.position.lerpVectors(startPosition.current, targetCameraPos.current, eased);
+        currentTarget.current.lerpVectors(startTarget.current, targetLookAt.current, eased);
+        controlsRef.current.target.copy(currentTarget.current);
+        
+        if (t >= 1) {
+          isAnimating.current = false;
+          isReturningToEarth.current = false;
+        }
+      } else if (animationPhase.current === 'flyover') {
+        // Seamless flyover: single animation through start → midpoint → target
+        animationProgress.current += delta * 0.8; // Smooth speed for full arc
+        const t = Math.min(animationProgress.current, 1);
+        
+        // Use smooth step for seamless acceleration/deceleration
+        // t < 0.5: accelerate out (fast start, slow at midpoint)
+        // t > 0.5: accelerate in (slow at midpoint, fast end)
+        let eased: number;
+        if (t < 0.5) {
+          // First half: ease-out (fast to slow)
+          const t2 = t * 2; // 0 to 1 for first half
+          eased = (1 - Math.pow(1 - t2, 2)) * 0.5; // 0 to 0.5
+        } else {
+          // Second half: ease-in (slow to fast)
+          const t2 = (t - 0.5) * 2; // 0 to 1 for second half
+          eased = 0.5 + (t2 * t2) * 0.5; // 0.5 to 1
+        }
+        
+        // Quadratic bezier through start, midpoint, target
+        const oneMinusT = 1 - eased;
+        const p0 = startPosition.current.clone().multiplyScalar(oneMinusT * oneMinusT);
+        const p1 = midpointCameraPos.current.clone().multiplyScalar(2 * oneMinusT * eased);
+        const p2 = targetCameraPos.current.clone().multiplyScalar(eased * eased);
+        camera.position.copy(p0.add(p1).add(p2));
+        
+        currentTarget.current.set(0, 0, 0);
+        controlsRef.current.target.copy(currentTarget.current);
+        
+        if (t >= 1) {
+          isAnimating.current = false;
+          isReturningToEarth.current = false;
+          animationPhase.current = 'direct';
+        }
       }
     } else {
       const distFromCenter = camera.position.length();

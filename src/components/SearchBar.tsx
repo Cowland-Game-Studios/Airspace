@@ -279,6 +279,7 @@ export function SearchBar() {
             <div
               key={`${r.type}-${r.id}`}
               onClick={() => handleSelect(r)}
+              onMouseEnter={() => setSelectedIndex(i)}
               className={`px-3 py-2 cursor-pointer text-[10px] border-b border-[#0a0a0a] last:border-0 ${
                 i === selectedIndex ? 'bg-[#00ff88]/10' : 'hover:bg-[#111]'
               }`}
