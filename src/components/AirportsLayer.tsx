@@ -89,7 +89,7 @@ function LargeAirportsInstanced({ airports }: { airports: Airport[] }) {
       onPointerOver={handlePointerOver}
       onPointerOut={handlePointerOut}
     >
-      <planeGeometry args={[0.005, 0.005]} />
+      <planeGeometry args={[0.0025, 0.0025]} />
       <meshBasicMaterial 
         color="#ffffff" 
         transparent 
@@ -186,7 +186,7 @@ function SmallAirportsInstanced({ airports }: { airports: Airport[] }) {
       onPointerOver={handlePointerOver}
       onPointerOut={handlePointerOut}
     >
-      <circleGeometry args={[0.002, 8]} />
+      <circleGeometry args={[0.001, 8]} />
       <meshBasicMaterial 
         color="#ffffff" 
         transparent 

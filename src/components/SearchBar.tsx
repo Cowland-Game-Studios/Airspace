@@ -204,20 +204,6 @@ export function SearchBar() {
     }
   }, [aircraft]);
   
-  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const value = e.target.value;
-    setQuery(value);
-    
-    // Debounce search
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-    }
-    
-    debounceRef.current = setTimeout(() => {
-      performSearch(value);
-    }, 300);
-  }, [performSearch]);
-  
   const handleResultClick = useCallback((ac: Aircraft) => {
     selectAircraft(ac.id);
     setShowResults(false);
@@ -275,35 +261,12 @@ export function SearchBar() {
       hoverAircraft(null);
     }
   }, [showResults, hoverAircraft]);
-  
-  const handleTextareaKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    // Allow Enter to submit, Shift+Enter for newline
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      if (results.length > 0 && selectedIndex >= 0) {
-        const selected = results[selectedIndex];
-        if (selected) {
-          selectAircraft(selected.id);
-          setShowResults(false);
-          setQuery('');
-        }
-      }
-    } else if (e.key === 'ArrowDown' && showResults) {
-      e.preventDefault();
-      setSelectedIndex(i => Math.min(i + 1, results.length - 1));
-    } else if (e.key === 'ArrowUp' && showResults) {
-      e.preventDefault();
-      setSelectedIndex(i => Math.max(i - 1, 0));
-    } else if (e.key === 'Escape') {
-      setShowResults(false);
-    }
-  }, [results, selectedIndex, selectAircraft, showResults]);
 
   return (
-    <div className="relative min-w-[280px] w-[280px]">
+    <div className="relative w-full">
       {/* Results panel - expands upward */}
       <div 
-        className={`absolute bottom-full left-0 right-0 mb-1 transition-all duration-200 ease-out origin-bottom ${
+        className={`absolute bottom-full left-0 right-0 mb-2 transition-all duration-200 ease-out origin-bottom ${
           showResults && (results.length > 0 || (query && !isSearching)) 
             ? 'opacity-100 scale-y-100' 
             : 'opacity-0 scale-y-0 pointer-events-none'
@@ -315,11 +278,11 @@ export function SearchBar() {
             <div className="px-3 py-1.5 border-b border-[#1a1a1a] flex items-center justify-between">
               <span className="text-[9px] text-[#666]">
                 {totalMatches > results.length 
-                  ? `Showing ${results.length} of ${totalMatches} matches`
+                  ? `${results.length}/${totalMatches}`
                   : `${results.length} match${results.length !== 1 ? 'es' : ''}`
                 }
               </span>
-              <span className="text-[8px] text-[#444]">↑↓ · Enter</span>
+              <span className="text-[8px] text-[#444]">↑↓ Enter</span>
             </div>
           )}
           
@@ -330,13 +293,11 @@ export function SearchBar() {
               className="max-h-[320px] overflow-y-auto scrollbar-thin scrollbar-thumb-[#333] scrollbar-track-transparent"
             >
               {results.map((ac, index) => {
-                // Determine which fields are matched for highlighting
                 const callsignMatched = isFieldMatched('callsign', activeFilters) || textMatchesFreeText(ac.callsign, activeFreeText);
                 const idMatched = isFieldMatched('id', activeFilters) || textMatchesFreeText(ac.id, activeFreeText);
                 const countryMatched = isFieldMatched('originCountry', activeFilters) || textMatchesFreeText(ac.originCountry, activeFreeText);
                 const altitudeMatched = isFieldMatched('altitude', activeFilters);
                 const speedMatched = isFieldMatched('speed', activeFilters);
-                // "track" in aviation is the same as heading
                 const headingMatched = isFieldMatched('heading', activeFilters) || isFieldMatched('track', activeFilters);
                 const latLonMatched = isFieldMatched('latitude', activeFilters) || isFieldMatched('longitude', activeFilters);
                 
@@ -389,41 +350,46 @@ export function SearchBar() {
           
           {/* No results message */}
           {results.length === 0 && query && !isSearching && (
-            <div className="p-4 text-center">
-              <p className="text-[#444] text-[10px]">No aircraft found matching</p>
-              <p className="text-[#666] text-[11px] font-mono mt-1">"{query}"</p>
+            <div className="p-3 text-center">
+              <p className="text-[#444] text-[10px]">No matches for "<span className="text-[#666]">{query}</span>"</p>
             </div>
           )}
         </div>
       </div>
       
-      {/* Search input box */}
-      <div className="bg-black/90 border border-[#1a1a1a]">
-        <div className="border-b border-[#1a1a1a] px-3 py-2 text-[10px] text-[#666] flex items-center justify-between">
-          <span>SEARCH_AIRCRAFT <span className="text-[#444]">[/]</span></span>
-          {isSearching && <span className="text-[#00ff88] animate-pulse">PROCESSING...</span>}
-        </div>
-        <div className="p-3">
-          <div className="relative">
-            <textarea
-              ref={inputRef}
-              value={query}
-              onChange={handleInputChange}
-              onKeyDown={handleTextareaKeyDown}
-              onFocus={() => query && setShowResults(true)}
-              placeholder="Show me all United flights above 35,000 ft heading west"
-              rows={3}
-              className="w-full bg-black border border-[#333] px-3 py-2 text-[11px] text-white placeholder-[#444] focus:border-[#00ff88]/50 focus:outline-none font-mono resize-none overflow-hidden"
-            />
-            <div className="absolute right-2 bottom-2 text-[8px] text-[#333] flex items-center gap-1">
-              <span className="text-[#444]">⏎</span> search
-            </div>
-          </div>
-        </div>
-        
-        <div className="border-t border-[#1a1a1a] px-3 py-1.5 text-[8px] text-[#333]">
-          NLP powered · Shift+Enter for newline
-        </div>
+      {/* Compact inline search input */}
+      <div className="flex items-center gap-2 bg-black/50 border border-[#222] px-3 py-1.5">
+        <span className="text-[10px] text-[#444]">[/]</span>
+        <input
+          ref={inputRef as React.RefObject<HTMLInputElement>}
+          type="text"
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            if (debounceRef.current) clearTimeout(debounceRef.current);
+            debounceRef.current = setTimeout(() => performSearch(e.target.value), 300);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && results.length > 0) {
+              e.preventDefault();
+              selectAircraft(results[selectedIndex].id);
+              setShowResults(false);
+              setQuery('');
+            } else if (e.key === 'ArrowDown' && showResults) {
+              e.preventDefault();
+              setSelectedIndex(i => Math.min(i + 1, results.length - 1));
+            } else if (e.key === 'ArrowUp' && showResults) {
+              e.preventDefault();
+              setSelectedIndex(i => Math.max(i - 1, 0));
+            } else if (e.key === 'Escape') {
+              setShowResults(false);
+            }
+          }}
+          onFocus={() => query && setShowResults(true)}
+          placeholder="Search flights... (natural language)"
+          className="flex-1 bg-transparent text-[11px] text-white placeholder-[#444] focus:outline-none font-mono"
+        />
+        {isSearching && <span className="text-[9px] text-[#00ff88] animate-pulse">...</span>}
       </div>
     </div>
   );

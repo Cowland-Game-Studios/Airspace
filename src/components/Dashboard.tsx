@@ -452,28 +452,8 @@ export function Dashboard() {
 
   return (
     <div className="absolute inset-0 pointer-events-none font-mono">
-      <div className="absolute top-0 left-0 right-0 p-4 border-b border-[#1a1a1a] bg-black/50 backdrop-blur-sm">
-        <div className="flex items-center justify-between">
-          <div className="pointer-events-auto">
-            <h1 className="text-sm font-medium text-white">
-              COWLANTIR RADAR SYSTEMS<span className="text-[#333]">//</span><span className="text-[#666]">v0.0.1</span>
-            </h1>
-          </div>
-          <div className="pointer-events-auto">
-            <div className="flex items-center gap-3 px-3 py-1.5 border border-[#1a1a1a] bg-black/50 backdrop-blur-sm">
-              <div className={'w-1.5 h-1.5 ' + (isPolling ? 'bg-[#00ff88]' : 'bg-[#ff4444]')} />
-              <span className="text-[10px] tracking-[0.15em] text-[#666]">
-                {isPolling ? 'UPLINK_ACTIVE' : 'UPLINK_PAUSED'}
-              </span>
-              <span className="text-[10px] text-[#00ff88]">{aircraft.length}</span>
-              <span className="text-[10px] tracking-[0.15em] text-[#00ff88]">ONLINE</span>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      <div className="absolute bottom-4 left-4 pointer-events-auto">
-        {/* Show airport info when hovering airport, otherwise show aircraft info */}
+      {/* Track info panel - top left */}
+      <div className="absolute top-4 left-4 pointer-events-auto">
         {isHoveringAirport ? (
           <AirportInfoPanel airport={displayAirport} />
         ) : (
@@ -487,8 +467,26 @@ export function Dashboard() {
         )}
       </div>
       
-      <div className="absolute bottom-4 right-4 pointer-events-auto">
-        <SearchBar />
+      {/* Bottom bar with status, search, and branding */}
+      <div className="absolute bottom-0 left-0 right-0 p-3 border-t border-[#1a1a1a] bg-black/80 backdrop-blur-sm">
+        <div className="flex items-center justify-between gap-4">
+          {/* Left: Status indicator */}
+          <div className="pointer-events-auto flex items-center gap-2">
+            <div className={'w-2 h-2 rounded-full ' + (isPolling ? 'bg-[#00ff88]' : 'bg-[#ff4444]')} />
+            <span className="text-[10px] text-[#00ff88] font-medium">[{aircraft.length}]</span>
+            <span className="text-[10px] text-[#666]">ONLINE</span>
+          </div>
+          
+          {/* Center: Search bar */}
+          <div className="flex-1 max-w-xl pointer-events-auto">
+            <SearchBar />
+          </div>
+          
+          {/* Right: Branding */}
+          <div className="pointer-events-auto">
+            <span className="text-[10px] text-[#444]">COWLANTIR<span className="text-[#333]">//</span>v0.0.1</span>
+          </div>
+        </div>
       </div>
     </div>
   );
