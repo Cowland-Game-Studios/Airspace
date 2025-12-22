@@ -502,7 +502,8 @@ export function CameraController() {
   return (
     <OrbitControls
       ref={controlsRef}
-      enablePan={false}
+      enablePan={true}
+      panSpeed={0.5}
       minDistance={0.15}
       maxDistance={5}
       rotateSpeed={0.5}
@@ -510,10 +511,16 @@ export function CameraController() {
       dampingFactor={0.1}
       enableDamping
       onChange={handleControlsChange}
-      // Mobile touch support
+      // Mouse: left-drag = rotate, right-drag = pan, scroll = zoom
+      mouseButtons={{
+        LEFT: THREE.MOUSE.ROTATE,
+        MIDDLE: THREE.MOUSE.DOLLY,
+        RIGHT: THREE.MOUSE.PAN,
+      }}
+      // Touch: 1-finger = rotate, 2-finger = pinch zoom + pan
       touches={{
-        ONE: 1, // TOUCH.ROTATE
-        TWO: 2, // TOUCH.DOLLY_PAN (pinch to zoom)
+        ONE: THREE.TOUCH.ROTATE,
+        TWO: THREE.TOUCH.DOLLY_PAN,
       }}
     />
   );
