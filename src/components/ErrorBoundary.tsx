@@ -63,6 +63,11 @@ export class ErrorBoundary extends Component<Props, State> {
           className="fixed inset-0 bg-black flex flex-col items-center justify-center font-mono p-8"
           style={{ zIndex: 99999 }}
         >
+          <style>{`
+            .error-textarea::-webkit-scrollbar {
+              display: none;
+            }
+          `}</style>
           <div className="flex flex-col items-center gap-8 w-full max-w-[800px]">
             {/* Title - matching loading screen style */}
             <div className="text-white text-2xl tracking-[0.3em] font-light">
@@ -73,7 +78,11 @@ export class ErrorBoundary extends Component<Props, State> {
             <textarea
               readOnly
               value={errorDump}
-              className="w-full h-[280px] bg-[#0a0a0a] border border-[#222] text-[#555] text-[9px] p-4 font-mono resize-none focus:outline-none"
+              className="error-textarea w-full h-[280px] bg-[#0a0a0a] border border-[#222] text-[#555] text-[9px] p-4 font-mono resize-none focus:outline-none overflow-auto"
+              style={{ 
+                scrollbarWidth: 'none', 
+                msOverflowStyle: 'none',
+              }}
               onClick={(e) => (e.target as HTMLTextAreaElement).select()}
             />
 

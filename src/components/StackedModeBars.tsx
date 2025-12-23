@@ -128,9 +128,14 @@ export function StackedModeBars({ isSearchFocused, animateIn }: StackedModeBarsP
   // AI tool local state
   const [aiTool, setAiTool] = useState<AITool>('agent');
   
-  // Menu state
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [highlightedIndex, setHighlightedIndex] = useState(0);
+  // Menu state - separate menus for filter and AI
+  const [filterMenuOpen, setFilterMenuOpen] = useState(false);
+  const [aiMenuOpen, setAiMenuOpen] = useState(false);
+  const [filterHighlightedIndex, setFilterHighlightedIndex] = useState(0);
+  const [aiHighlightedIndex, setAiHighlightedIndex] = useState(0);
+  const [shiftHeld, setShiftHeld] = useState(false);
+  const tabPressTime = useRef<number | null>(null);
+  const tabHoldTimeout = useRef<NodeJS.Timeout | null>(null);
   const shiftTabPressTime = useRef<number | null>(null);
   const shiftTabHoldTimeout = useRef<NodeJS.Timeout | null>(null);
   
@@ -152,11 +157,11 @@ export function StackedModeBars({ isSearchFocused, animateIn }: StackedModeBarsP
     airport: airports.length,
   }), [aircraft.length, airports.length]);
   
-  // Build menu sections for SelectorMenu
-  const menuSections: MenuSection[] = useMemo(() => [
+  // Build menu sections for SelectorMenu - separate for filter and AI
+  const filterMenuSections: MenuSection[] = useMemo(() => [
     {
       id: 'filter',
-      label: 'FILTER',
+      label: 'FILTER MODES',
       items: filterModes.map(mode => ({
         id: mode,
         label: mode === 'all' ? 'ALL' : mode === 'aircraft' ? 'AIRCRAFT' : 'AIRPORTS',
@@ -165,6 +170,9 @@ export function StackedModeBars({ isSearchFocused, animateIn }: StackedModeBarsP
         count: counts[mode],
       })),
     },
+  ], [filterModes, counts]);
+  
+  const aiMenuSections: MenuSection[] = useMemo(() => [
     {
       id: 'ai',
       label: 'AI TOOLS',
@@ -175,22 +183,21 @@ export function StackedModeBars({ isSearchFocused, animateIn }: StackedModeBarsP
         colors: AI_COLORS[tool],
       })),
     },
-  ], [filterModes, aiTools, counts]);
+  ], [aiTools]);
   
-  // Get current active ID based on active bar
-  const activeId = activeBar === 'filter' ? filterMode : aiTool;
-  
-  // Handle menu selection
-  const handleMenuSelect = useCallback((itemId: string, sectionId: string) => {
-    if (sectionId === 'filter') {
-      setActiveBar('filter');
-      setFilterMode(itemId as FilterMode);
-    } else {
-      setActiveBar('ai');
-      setAiTool(itemId as AITool);
-    }
-    setMenuOpen(false);
+  // Handle filter menu selection
+  const handleFilterMenuSelect = useCallback((itemId: string, _sectionId: string) => {
+    setActiveBar('filter');
+    setFilterMode(itemId as FilterMode);
+    setFilterMenuOpen(false);
   }, [setFilterMode]);
+  
+  // Handle AI menu selection
+  const handleAIMenuSelect = useCallback((itemId: string, _sectionId: string) => {
+    setActiveBar('ai');
+    setAiTool(itemId as AITool);
+    setAiMenuOpen(false);
+  }, []);
   
   // Update filter highlight position
   useEffect(() => {
@@ -224,7 +231,30 @@ export function StackedModeBars({ isSearchFocused, animateIn }: StackedModeBarsP
     }
   }, [aiTool, aiTools]);
   
-  // Handle Shift+Tab for cycling AI tools and opening menu
+  // Track Shift key held state
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Shift' && !e.repeat) {
+        setShiftHeld(true);
+      }
+    };
+    
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Shift') {
+        setShiftHeld(false);
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
+  
+  // Handle Shift+Tab for cycling AI tools and opening AI menu
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Shift+Tab handling - only cycles AI tools
@@ -232,14 +262,13 @@ export function StackedModeBars({ isSearchFocused, animateIn }: StackedModeBarsP
         e.preventDefault();
         e.stopPropagation();
         
-        if (!menuOpen) {
+        if (!aiMenuOpen) {
           shiftTabPressTime.current = Date.now();
           
-          // Set timeout for hold to open menu
+          // Set timeout for hold to open AI menu
           shiftTabHoldTimeout.current = setTimeout(() => {
-            // Menu highlights AI tools starting after filter modes
-            setHighlightedIndex(filterModes.length + aiTools.indexOf(aiTool));
-            setMenuOpen(true);
+            setAiHighlightedIndex(aiTools.indexOf(aiTool));
+            setAiMenuOpen(true);
           }, HOLD_THRESHOLD);
         }
       }
@@ -247,36 +276,29 @@ export function StackedModeBars({ isSearchFocused, animateIn }: StackedModeBarsP
     
     const handleKeyUp = (e: KeyboardEvent) => {
       // Shift+Tab release - if quick press, cycle through AI tools only
-      if (e.key === 'Tab') {
+      if (e.key === 'Tab' && shiftTabPressTime.current) {
         if (shiftTabHoldTimeout.current) {
           clearTimeout(shiftTabHoldTimeout.current);
           shiftTabHoldTimeout.current = null;
         }
         
-        if (shiftTabPressTime.current && !menuOpen) {
+        if (!aiMenuOpen) {
           const duration = Date.now() - shiftTabPressTime.current;
           if (duration < HOLD_THRESHOLD) {
-            // Quick press - cycle through AI tools only
+            // Quick press - cycle through AI tools only (don't change activeBar)
             const currentIdx = aiTools.indexOf(aiTool);
             const nextIdx = (currentIdx + 1) % aiTools.length;
-            setActiveBar('ai');
             setAiTool(aiTools[nextIdx]);
           }
         }
         shiftTabPressTime.current = null;
       }
       
-      // Shift release when menu is open - close and select
-      if (e.key === 'Shift' && menuOpen) {
-        const idx = highlightedIndex;
-        if (idx < filterModes.length) {
-          setActiveBar('filter');
-          setFilterMode(filterModes[idx]);
-        } else {
-          setActiveBar('ai');
-          setAiTool(aiTools[idx - filterModes.length]);
-        }
-        setMenuOpen(false);
+      // Shift release when AI menu is open - close and select, set AI bar as active
+      if (e.key === 'Shift' && aiMenuOpen) {
+        setActiveBar('ai');
+        setAiTool(aiTools[aiHighlightedIndex]);
+        setAiMenuOpen(false);
       }
     };
     
@@ -290,26 +312,69 @@ export function StackedModeBars({ isSearchFocused, animateIn }: StackedModeBarsP
         clearTimeout(shiftTabHoldTimeout.current);
       }
     };
-  }, [menuOpen, filterModes, aiTools, aiTool, highlightedIndex, setFilterMode]);
+  }, [aiMenuOpen, aiTools, aiTool, aiHighlightedIndex]);
   
-  // Regular Tab handling for filter bar only
+  // Regular Tab handling for filter bar - tap cycles, hold opens menu
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Tab' && !e.shiftKey) {
+      // Only handle Tab when Shift is NOT held
+      if (e.key === 'Tab' && !e.shiftKey && !shiftHeld) {
         e.preventDefault();
         e.stopPropagation();
         
-        // Cycle filter modes only
-        const currentIdx = filterModes.indexOf(filterMode);
-        const nextIdx = (currentIdx + 1) % filterModes.length;
+        if (!filterMenuOpen) {
+          tabPressTime.current = Date.now();
+          
+          // Set timeout for hold to open filter menu
+          tabHoldTimeout.current = setTimeout(() => {
+            setFilterHighlightedIndex(filterModes.indexOf(filterMode));
+            setFilterMenuOpen(true);
+          }, HOLD_THRESHOLD);
+        }
+      }
+    };
+    
+    const handleKeyUp = (e: KeyboardEvent) => {
+      // Tab release - if quick press, cycle through filter modes
+      if (e.key === 'Tab' && !shiftHeld && tabPressTime.current) {
+        if (tabHoldTimeout.current) {
+          clearTimeout(tabHoldTimeout.current);
+          tabHoldTimeout.current = null;
+        }
+        
+        if (!filterMenuOpen) {
+          const duration = Date.now() - tabPressTime.current;
+          if (duration < HOLD_THRESHOLD) {
+            // Quick press - cycle through filter modes
+            const currentIdx = filterModes.indexOf(filterMode);
+            const nextIdx = (currentIdx + 1) % filterModes.length;
+            setActiveBar('filter');
+            setFilterMode(filterModes[nextIdx]);
+          }
+        }
+        tabPressTime.current = null;
+      }
+      
+      // Tab release when filter menu is open - close and select
+      if (e.key === 'Tab' && filterMenuOpen && !shiftHeld) {
         setActiveBar('filter');
-        setFilterMode(filterModes[nextIdx]);
+        setFilterMode(filterModes[filterHighlightedIndex]);
+        setFilterMenuOpen(false);
+        tabPressTime.current = null;
       }
     };
     
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [filterMode, filterModes, setFilterMode]);
+    window.addEventListener('keyup', handleKeyUp);
+    
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      if (tabHoldTimeout.current) {
+        clearTimeout(tabHoldTimeout.current);
+      }
+    };
+  }, [filterMode, filterModes, setFilterMode, shiftHeld, filterMenuOpen, filterHighlightedIndex]);
   
   // Helper functions for rendering
   const getFilterIcon = (mode: FilterMode, active: boolean, highlighted?: boolean) => {
@@ -347,7 +412,7 @@ export function StackedModeBars({ isSearchFocused, animateIn }: StackedModeBarsP
   // Stacked mode when search is focused
   const isStacked = isSearchFocused;
   
-  // Calculate bar styles
+  // Calculate bar styles - when Shift is held, AI bar comes to front
   const getFilterBarStyle = () => {
     if (isStacked) {
       return {
@@ -356,10 +421,12 @@ export function StackedModeBars({ isSearchFocused, animateIn }: StackedModeBarsP
         opacity: 1,
       };
     }
+    // When Shift is held, filter bar goes to back; otherwise use activeBar state
+    const isInFront = shiftHeld ? false : activeBar === 'filter';
     return {
-      transform: activeBar === 'filter' ? 'translateY(0)' : 'translateY(6px) translateX(-6px) scale(0.95)',
-      zIndex: activeBar === 'filter' ? 2 : 1,
-      opacity: activeBar === 'filter' ? 1 : 0.1,
+      transform: isInFront ? 'translateY(0)' : 'translateY(6px) translateX(-6px) scale(0.95)',
+      zIndex: isInFront ? 2 : 1,
+      opacity: isInFront ? 1 : 0.1,
     };
   };
   
@@ -371,10 +438,12 @@ export function StackedModeBars({ isSearchFocused, animateIn }: StackedModeBarsP
         opacity: 1,
       };
     }
+    // When Shift is held, AI bar comes to front; otherwise use activeBar state
+    const isInFront = shiftHeld ? true : activeBar === 'ai';
     return {
-      transform: activeBar === 'ai' ? 'translateY(0)' : 'translateY(-6px) translateX(6px) scale(0.95)',
-      zIndex: activeBar === 'ai' ? 2 : 1,
-      opacity: activeBar === 'ai' ? 1 : 0.1,
+      transform: isInFront ? 'translateY(0)' : 'translateY(-6px) translateX(6px) scale(0.95)',
+      zIndex: isInFront ? 2 : 1,
+      opacity: isInFront ? 1 : 0.1,
     };
   };
 
@@ -383,15 +452,27 @@ export function StackedModeBars({ isSearchFocused, animateIn }: StackedModeBarsP
       className={`stacked-bars-container relative shrink-0 ${animateIn ? 'bottom-bar-item animate-in' : 'bottom-bar-item'}`}
       style={{ '--item-index': 0 } as React.CSSProperties}
     >
-      {/* Unified Menu using SelectorMenu component */}
+      {/* Filter Menu - shown when Tab is held */}
       <SelectorMenu
-        sections={menuSections}
-        activeId={activeId}
-        highlightedIndex={highlightedIndex}
-        setHighlightedIndex={setHighlightedIndex}
-        isOpen={menuOpen}
-        onClose={() => setMenuOpen(false)}
-        onSelect={handleMenuSelect}
+        sections={filterMenuSections}
+        activeId={filterMode}
+        highlightedIndex={filterHighlightedIndex}
+        setHighlightedIndex={setFilterHighlightedIndex}
+        isOpen={filterMenuOpen}
+        onClose={() => setFilterMenuOpen(false)}
+        onSelect={handleFilterMenuSelect}
+        footer="release TAB to select"
+      />
+      
+      {/* AI Menu - shown when Shift+Tab is held */}
+      <SelectorMenu
+        sections={aiMenuSections}
+        activeId={aiTool}
+        highlightedIndex={aiHighlightedIndex}
+        setHighlightedIndex={setAiHighlightedIndex}
+        isOpen={aiMenuOpen}
+        onClose={() => setAiMenuOpen(false)}
+        onSelect={handleAIMenuSelect}
         footer="release ⇧ to select"
       />
       
@@ -403,7 +484,7 @@ export function StackedModeBars({ isSearchFocused, animateIn }: StackedModeBarsP
         <div 
           ref={filterContainerRef}
           className={`relative flex items-center gap-1 ${BG.GLASS_BLUR} border px-2 py-2 transition-all duration-200 cursor-pointer select-none ${TEXT.BASE} ${
-            menuOpen ? BORDER.ACCENT_BLUE : BORDER.DEFAULT
+            filterMenuOpen ? BORDER.ACCENT_BLUE : BORDER.DEFAULT
           }`}
         >
           {/* Animated highlight background */}
@@ -454,7 +535,9 @@ export function StackedModeBars({ isSearchFocused, animateIn }: StackedModeBarsP
       >
         <div 
           ref={aiContainerRef}
-          className={`relative flex items-center gap-1 ${BG.GLASS_BLUR} border px-2 py-2 transition-all duration-200 cursor-pointer select-none ${TEXT.BASE} ${BORDER.DEFAULT}`}
+          className={`relative flex items-center gap-1 ${BG.GLASS_BLUR} border px-2 py-2 transition-all duration-200 cursor-pointer select-none ${TEXT.BASE} ${
+            aiMenuOpen ? BORDER.ACCENT_BLUE : BORDER.DEFAULT
+          }`}
         >
           {/* Animated highlight background */}
           <div 

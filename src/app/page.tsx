@@ -109,9 +109,7 @@ function LoadingOverlay() {
         
         {/* Main title with reveal effect - absolutely positioned */}
         <div className="absolute top-5 left-0 right-0 text-center">
-          <div className="relative inline-flex items-center justify-center gap-2 text-sm tracking-[0.25em] font-light">
-            {/* Logo */}
-            <img src="/@bullhorn.png" alt="" className="w-4 h-4 opacity-30" />
+          <div className="relative inline-block text-sm tracking-[0.25em] font-light">
             {/* Grey background text */}
             <span className={`${TEXT.DARK} whitespace-nowrap`}>
               BULLHORN AEROSYSTEMS

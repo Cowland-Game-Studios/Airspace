@@ -117,10 +117,10 @@ export function SelectorMenu({
       className={`selector-menu-container absolute bottom-full left-0 mb-2 ${BG.PANEL_BLUR} ${BORDER.PANEL} overflow-hidden transition-all duration-200 ease-out ${
         isOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none'
       } ${containerClassName}`}
-      style={{ minWidth: '160px' }}
+      style={{ minWidth: '120px' }}
     >
-      <div className={`px-2 py-1 ${BORDER.DIVIDER_B} ${TEXT.SECONDARY}`}>
-        SELECT MODE <span className={TEXT.DIMMED}>↑↓</span>
+      <div className={`px-2 py-1 ${BORDER.DIVIDER_B} ${TEXT.DIMMED} ${TEXT.XS}`}>
+        SELECT <span className={TEXT.DIMMED}>↑↓</span>
       </div>
       
       {sections.map((section, sectionIdx) => (
@@ -140,7 +140,7 @@ export function SelectorMenu({
             return (
               <div
                 key={item.id}
-                className={`flex items-center gap-2 px-3 py-1.5 cursor-pointer transition-all duration-100 ${
+                className={`flex items-center gap-1.5 px-2 py-1 cursor-pointer transition-all duration-100 ${TEXT.XS} ${
                   isHighlighted ? `${BG.HOVER} border-l-2` : 'border-l-2 border-transparent'
                 }`}
                 style={{ borderLeftColor: isHighlighted ? item.colors.highlighted : 'transparent' }}
@@ -160,7 +160,7 @@ export function SelectorMenu({
         </div>
       ))}
       
-      <div className={`px-2 py-1 ${BORDER.DIVIDER} ${TEXT.DIMMED} text-center`}>
+      <div className={`px-2 py-0.5 ${BORDER.DIVIDER} ${TEXT.DIMMED} ${TEXT.XS} text-center`}>
         {footer}
       </div>
     </div>
