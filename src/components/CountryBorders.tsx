@@ -7,7 +7,7 @@ import { useRadarStore } from '@/store/gameStore';
 
 const EARTH_RADIUS = 1.002;
 const GEOJSON_URL = 'https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json';
-const DRAW_DURATION = 0.8; // seconds to fully draw borders
+const DRAW_DURATION = 1.5; // seconds to fully draw borders (slower)
 
 function latLonToVector3(lat: number, lon: number, radius: number = EARTH_RADIUS): THREE.Vector3 {
   const phi = (90 - lat) * (Math.PI / 180);

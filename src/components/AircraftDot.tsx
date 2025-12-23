@@ -6,6 +6,7 @@ import { Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { useRadarStore, ViewportBounds } from '@/store/gameStore';
 import { GLOBE, AIRCRAFT, COLORS } from '@/config/constants';
+import { calculateViewVisibility } from '@/utils/lod';
 
 interface Aircraft {
   id: string;
@@ -166,8 +167,8 @@ const triangleGeometry = (() => {
 // Threshold for switching to simple triangles (LOD)
 const LOD_THRESHOLD = AIRCRAFT.LOD_THRESHOLD;
 
-const FLY_IN_DURATION = 0.8; // seconds
-const FLY_IN_DISTANCE = 0.3; // How far off-screen to start
+const FADE_IN_STAGGER_DURATION = 1.2; // Total stagger time
+const FADE_IN_INDIVIDUAL_DURATION = 0.4; // Individual aircraft fade duration
 
 export function AircraftDot({ aircraft, onClick }: { aircraft: Aircraft; onClick?: () => void }) {
   const groupRef = useRef<THREE.Group>(null);
@@ -186,10 +187,15 @@ export function AircraftDot({ aircraft, onClick }: { aircraft: Aircraft; onClick
   const targetOpacity = useRef(1);
   const hasAppeared = useRef(false);
   
-  // Fly-in animation state
-  const flyInProgress = useRef(0);
-  const flyInStarted = useRef(false);
-  const flyInStartPos = useRef<THREE.Vector3 | null>(null);
+  // Fade-in animation state with stagger based on longitude
+  const fadeInTime = useRef(0);
+  const fadeInStarted = useRef(false);
+  
+  // Calculate stagger delay based on longitude (left to right)
+  const staggerDelay = useMemo(() => {
+    const normalizedLon = (aircraft.position.longitude + 180) / 360;
+    return normalizedLon * FADE_IN_STAGGER_DURATION;
+  }, [aircraft.position.longitude]);
   
   const initialPos = latLonToVector3(aircraft.position.latitude, aircraft.position.longitude, aircraft.position.altitude);
   const initialQuat = getAircraftOrientation(aircraft.position.latitude, aircraft.position.longitude, aircraft.position.heading);
@@ -206,6 +212,9 @@ export function AircraftDot({ aircraft, onClick }: { aircraft: Aircraft; onClick
   const lastServerTime = useRef(Date.now());
   const currentQuat = useRef(initialQuat.clone());
   const targetQuat = useRef(initialQuat.clone());
+  
+  // Smooth visibility for LOD (prevents sudden scale jumps)
+  const smoothVisibility = useRef(1);
   
   // 3D Paper airplane geometry
   const planeGeometry = useMemo(() => {
@@ -294,33 +303,25 @@ export function AircraftDot({ aircraft, onClick }: { aircraft: Aircraft; onClick
   useFrame((state, delta) => {
     if (!groupRef.current) return;
     
-    // Handle fly-in animation
-    const canFlyIn = introPhase === 'aircraft' || introPhase === 'complete';
+    // Handle fade-in animation with stagger
+    const canFadeIn = introPhase === 'aircraft' || introPhase === 'complete';
     
-    if (canFlyIn && !flyInStarted.current) {
-      flyInStarted.current = true;
-      flyInProgress.current = 0;
-      
-      // Calculate start position: behind the aircraft based on its heading
-      const headingRad = aircraft.position.heading * (Math.PI / 180);
-      // Offset in the opposite direction of travel
-      const offsetLat = -Math.cos(headingRad) * FLY_IN_DISTANCE * 50; // In degrees
-      const offsetLon = -Math.sin(headingRad) * FLY_IN_DISTANCE * 50;
-      
-      flyInStartPos.current = latLonToVector3(
-        aircraft.position.latitude + offsetLat,
-        aircraft.position.longitude + offsetLon,
-        aircraft.position.altitude
-      );
+    if (canFadeIn && !fadeInStarted.current) {
+      fadeInStarted.current = true;
+      fadeInTime.current = 0;
     }
     
-    // Animate fly-in progress
-    if (flyInStarted.current && flyInProgress.current < 1) {
-      flyInProgress.current = Math.min(1, flyInProgress.current + delta / FLY_IN_DURATION);
+    // Animate fade-in time
+    if (fadeInStarted.current) {
+      fadeInTime.current += delta;
     }
     
-    // Before animation starts, hide aircraft
-    if (!flyInStarted.current) {
+    // Calculate individual progress with stagger delay
+    const individualTime = Math.max(0, fadeInTime.current - staggerDelay);
+    const fadeInProgress = Math.min(1, individualTime / FADE_IN_INDIVIDUAL_DURATION);
+    
+    // Before animation starts (waiting for stagger), hide aircraft
+    if (!fadeInStarted.current || fadeInProgress <= 0) {
       groupRef.current.visible = false;
       return;
     }
@@ -330,7 +331,7 @@ export function AircraftDot({ aircraft, onClick }: { aircraft: Aircraft; onClick
     // Dead reckoning: predict position based on elapsed time since last server update
     const elapsedSeconds = (Date.now() - lastServerTime.current) / 1000;
     
-    // Calculate target position (with dead reckoning if moving)
+    // Calculate target position and orientation (with dead reckoning if moving)
     let finalTargetPos: THREE.Vector3;
     if (lastServerSpeed.current > 10 && elapsedSeconds < 120) {
       const predicted = predictPosition(
@@ -341,21 +342,24 @@ export function AircraftDot({ aircraft, onClick }: { aircraft: Aircraft; onClick
         elapsedSeconds
       );
       finalTargetPos = latLonToVector3(predicted.lat, predicted.lon, lastServerAlt.current);
+      // Update orientation for predicted position (heading stays the same)
+      targetQuat.current = getAircraftOrientation(predicted.lat, predicted.lon, lastServerHeading.current);
     } else {
       finalTargetPos = targetPos.current.clone();
+      // Update orientation for current position
+      targetQuat.current = getAircraftOrientation(
+        lastServerLat.current, 
+        lastServerLon.current, 
+        lastServerHeading.current
+      );
     }
     
-    // Apply fly-in interpolation
-    if (flyInProgress.current < 1 && flyInStartPos.current) {
-      // Ease out cubic for deceleration effect
-      const eased = 1 - Math.pow(1 - flyInProgress.current, 3);
-      const flyInPos = flyInStartPos.current.clone().lerp(finalTargetPos, eased);
-      groupRef.current.position.copy(flyInPos);
-      currentPos.current.copy(flyInPos);
-    } else {
-      groupRef.current.position.copy(finalTargetPos);
-      currentPos.current.copy(finalTargetPos);
-    }
+    // Set position directly (no fly-in animation)
+    groupRef.current.position.copy(finalTargetPos);
+    currentPos.current.copy(finalTargetPos);
+    
+    // Apply fade-in opacity multiplier (will be used later in opacity calculation)
+    const introOpacity = fadeInProgress;
     
     // Update sync marker to show last server position
     // Show when: selected (always) OR hovered (when not selected)
@@ -394,10 +398,24 @@ export function AircraftDot({ aircraft, onClick }: { aircraft: Aircraft; onClick
     // At distance 5 (max zoom out), scale = 1.0 (full size)
     const zoomScale = Math.max(0.2, Math.min(1.2, cameraDistance / 5));
     
-    // Scale on hover/select
-    const baseScale = isSelected ? 1.5 : isHovered ? 1.3 : 1;
-    const pulse = (isSelected || isHovered) ? 1 + Math.sin(state.clock.elapsedTime * 4) * 0.1 : 1;
-    groupRef.current.scale.setScalar(baseScale * pulse * zoomScale);
+    // Calculate view visibility for lazy loading (selected/hovered always visible)
+    const targetVisibility = (isSelected || isHovered) ? 1 : calculateViewVisibility(currentPos.current, state.camera);
+    
+    // Smooth the visibility transition to prevent sudden scale jumps
+    const visibilitySmoothFactor = Math.min(delta * 4, 0.25);
+    smoothVisibility.current += (targetVisibility - smoothVisibility.current) * visibilitySmoothFactor;
+    
+    // Early exit: hide aircraft completely if not in view (performance optimization)
+    if (smoothVisibility.current < 0.01) {
+      groupRef.current.visible = false;
+      return;
+    }
+    groupRef.current.visible = true;
+    
+    // Scale on hover/select - make hovered objects bigger and more noticeable
+    const baseScale = isSelected ? 1.8 : isHovered ? 1.6 : 1;
+    const pulse = (isSelected || isHovered) ? 1 + Math.sin(state.clock.elapsedTime * 5) * 0.15 : 1;
+    groupRef.current.scale.setScalar(baseScale * pulse * zoomScale * smoothVisibility.current);
     
     // Smooth opacity transitions for viewport edge fading and fade-in
     // Selected/hovered aircraft always fully visible
@@ -405,7 +423,7 @@ export function AircraftDot({ aircraft, onClick }: { aircraft: Aircraft; onClick
       aircraft.position.latitude,
       aircraft.position.longitude,
       viewportBounds
-    );
+    ) * smoothVisibility.current;
     
     // Fade in on first appearance
     if (!hasAppeared.current) {
@@ -418,11 +436,11 @@ export function AircraftDot({ aircraft, onClick }: { aircraft: Aircraft; onClick
     const opacitySmoothFactor = Math.min(delta * 3, 0.2);
     currentOpacity.current += (targetOpacity.current - currentOpacity.current) * opacitySmoothFactor;
     
-    // Update material opacity
+    // Update material opacity - multiply by intro fade-in progress
     if (meshRef.current) {
       const material = meshRef.current.material as THREE.MeshBasicMaterial;
-      material.opacity = currentOpacity.current;
-      material.transparent = currentOpacity.current < 1;
+      material.opacity = currentOpacity.current * introOpacity;
+      material.transparent = true;
     }
   });
   
@@ -459,8 +477,8 @@ export function AircraftDot({ aircraft, onClick }: { aircraft: Aircraft; onClick
       <group
         ref={groupRef}
         onClick={(e) => { e.stopPropagation(); onClick?.(); }}
-        onPointerOver={(e) => { e.stopPropagation(); hoverEntity({ type: 'aircraft', id: aircraft.id }); document.body.style.cursor = 'pointer'; }}
-        onPointerOut={() => { hoverEntity(null); document.body.style.cursor = 'auto'; }}
+        onPointerOver={(e) => { e.stopPropagation(); hoverEntity({ type: 'aircraft', id: aircraft.id }); }}
+        onPointerOut={() => { hoverEntity(null); }}
       >
         {/* Only show hitbox in detailed paper airplane mode for performance */}
         {!useSimpleMode && (

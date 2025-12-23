@@ -10,7 +10,7 @@ export function Dashboard() {
   const gameState = useRadarStore((state) => state.gameState);
   const selectEntity = useRadarStore((state) => state.selectEntity);
   const locationReady = useRadarStore((state) => state.locationReady);
-  const toast = useRadarStore((state) => state.toast);
+  const toasts = useRadarStore((state) => state.toasts);
   
   // Delay animation start until after loading screen fades
   const [animateIn, setAnimateIn] = useState(false);
@@ -57,18 +57,18 @@ export function Dashboard() {
       
       {/* Bottom Bar */}
       <div className="absolute bottom-0 left-0 right-0 p-3 pointer-events-auto">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex items-stretch gap-3">
           {/* Left: Mode Bar */}
           <div 
-            className={animateIn ? 'bottom-bar-item animate-in' : 'bottom-bar-item'} 
+            className={`shrink-0 ${animateIn ? 'bottom-bar-item animate-in' : 'bottom-bar-item'}`} 
             style={{ '--item-index': 0 } as React.CSSProperties}
           >
             <ModeBar />
           </div>
           
-          {/* Center: Search Bar */}
+          {/* Center: Search Bar - spans all available space */}
           <div 
-            className={`flex-1 max-w-md ${animateIn ? 'bottom-bar-item animate-in' : 'bottom-bar-item'}`}
+            className={`flex-1 min-w-0 ${animateIn ? 'bottom-bar-item animate-in' : 'bottom-bar-item'}`}
             style={{ '--item-index': 1 } as React.CSSProperties}
           >
             <SearchBar />
@@ -76,26 +76,34 @@ export function Dashboard() {
       
           {/* Right: Hints & Version */}
           <div 
-            className={`text-right ${animateIn ? 'bottom-bar-item animate-in' : 'bottom-bar-item'}`}
+            className={`shrink-0 flex flex-col justify-center text-right bg-black/30 backdrop-blur-md border border-[#333] px-3 ${animateIn ? 'bottom-bar-item animate-in' : 'bottom-bar-item'}`}
             style={{ '--item-index': 2 } as React.CSSProperties}
           >
-            <div className="text-[8px] text-[#444]">⇧: snap on/off | ⇧+TAB: filter | ←↑→↓: move</div>
-            <div className="text-[8px] text-[#444]">Bullhorn Aerosystems (commercial - v1.0.2)</div>
+            <div className="text-[8px] text-[#555]">WASD: move | ⇧+W/S: zoom | Q/E: tilt | CTRL: filter</div>
+            <div className="text-[8px] text-[#555]">Bullhorn Aerosystems (commercial - v1.0.2)</div>
           </div>
         </div>
       </div>
       
-      {/* Toast notification - Bottom Right */}
-      <div 
-        className={`absolute bottom-20 right-4 pointer-events-none transition-all duration-300 ${
-          toast.visible 
-            ? 'opacity-100 translate-y-0' 
-            : 'opacity-0 translate-y-2'
-        }`}
-      >
-        <div className="bg-black/80 backdrop-blur-sm border border-[#333] px-4 py-2 text-xs text-white tracking-widest">
-          {toast.message}
-        </div>
+      {/* Toast notifications - Bottom Right, stacked */}
+      <div className="absolute bottom-20 right-4 pointer-events-none flex flex-col-reverse gap-2">
+        {toasts.map((toast, index) => (
+          <div 
+            key={toast.id}
+            className={`transition-all duration-300 ${
+              toast.exiting 
+                ? 'opacity-0 translate-x-4' 
+                : 'opacity-100 translate-x-0'
+            }`}
+            style={{
+              transitionDelay: toast.exiting ? '0ms' : `${index * 50}ms`,
+            }}
+          >
+            <div className="bg-black/80 backdrop-blur-sm border border-[#333] px-4 py-2 text-xs text-white tracking-widest whitespace-nowrap">
+              {toast.message}
+            </div>
+          </div>
+        ))}
       </div>
       
       {/* Bottom bar animation styles */}

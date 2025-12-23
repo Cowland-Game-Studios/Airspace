@@ -82,6 +82,9 @@ interface FocusLocation {
   alt?: number;
 }
 
+// View modes for selected aircraft
+type ViewMode = 'focus' | 'chase' | 'cockpit' | 'orbit' | 'top';
+
 interface GameState {
   hoveredEntity: EntityRef | null;
   selectedEntity: EntityRef | null;
@@ -89,6 +92,7 @@ interface GameState {
   restoreCameraFlag: number; // Increment to trigger camera restore
   activeMode: 'all' | 'aircraft' | 'airport' | 'missile';
   snapMode: boolean; // Snap mode for arrow key entity navigation
+  viewMode: ViewMode; // Current view mode for selected aircraft
   isPlaying: boolean;
   isPaused: boolean;
   controlledAircraft: Set<string>;
@@ -97,9 +101,10 @@ interface GameState {
   crashedAircraft: string[];
 }
 
-interface ToastState {
-  message: string | null;
-  visible: boolean;
+interface Toast {
+  id: string;
+  message: string;
+  exiting: boolean;
 }
 
 // ============================================================================
@@ -128,10 +133,13 @@ interface Store {
   restoreCamera: () => void;
   setActiveMode: (mode: 'all' | 'aircraft' | 'airport' | 'missile') => void;
   toggleSnapMode: () => void;
+  setViewMode: (mode: ViewMode) => void;
+  cycleViewMode: (direction: 'next' | 'prev') => void;
   
   // Toast state
-  toast: ToastState;
+  toasts: Toast[];
   showToast: (message: string) => void;
+  dismissToast: (id: string) => void;
   
   // Entity lookup
   getAircraftById: (id: string) => Aircraft | undefined;
@@ -159,7 +167,7 @@ interface Store {
   setIntroPhase: (phase: 'loading' | 'borders' | 'airports' | 'aircraft' | 'complete') => void;
 }
 
-export type { Aircraft, Position, TrackWaypoint, FlightTrack, ViewportBounds, Airport };
+export type { Aircraft, Position, TrackWaypoint, FlightTrack, ViewportBounds, Airport, ViewMode };
 
 // ============================================================================
 // STORE IMPLEMENTATION
@@ -186,6 +194,7 @@ export const useRadarStore = create<Store>((set, get) => ({
     restoreCameraFlag: 0,
     activeMode: 'all',
     snapMode: false,
+    viewMode: 'focus',
     isPlaying: false,
     isPaused: false,
     controlledAircraft: new Set(),
@@ -195,10 +204,7 @@ export const useRadarStore = create<Store>((set, get) => ({
   },
   
   // Toast state
-  toast: {
-    message: null,
-    visible: false,
-  },
+  toasts: [],
   
   // Entity actions
   hoverEntity: (ref) => set((s) => ({
@@ -230,12 +236,61 @@ export const useRadarStore = create<Store>((set, get) => ({
     get().showToast(newSnapMode ? 'SNAP MODE ON' : 'SNAP MODE OFF');
   },
   
+  setViewMode: (mode) => {
+    set((s) => ({
+      gameState: { ...s.gameState, viewMode: mode },
+    }));
+  },
+  
+  cycleViewMode: (direction) => {
+    const viewModes: ViewMode[] = ['focus', 'chase', 'cockpit', 'orbit', 'top'];
+    const currentMode = get().gameState.viewMode;
+    const currentIndex = viewModes.indexOf(currentMode);
+    
+    let newIndex: number;
+    if (direction === 'next') {
+      newIndex = (currentIndex + 1) % viewModes.length;
+    } else {
+      newIndex = (currentIndex - 1 + viewModes.length) % viewModes.length;
+    }
+    
+    const newMode = viewModes[newIndex];
+    set((s) => ({
+      gameState: { ...s.gameState, viewMode: newMode },
+    }));
+    
+    // Show toast with view mode name
+    const modeLabels: Record<ViewMode, string> = {
+      focus: 'FOCUS VIEW',
+      chase: 'CHASE VIEW',
+      cockpit: 'COCKPIT VIEW',
+      orbit: 'ORBIT VIEW',
+      top: 'TOP VIEW',
+    };
+    get().showToast(modeLabels[newMode]);
+  },
+  
   showToast: (message) => {
-    set({ toast: { message, visible: true } });
-    // Auto-hide after 1.5 seconds
+    const id = `toast-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const newToast: Toast = { id, message, exiting: false };
+    
+    set((s) => ({ toasts: [...s.toasts, newToast] }));
+    
+    // Start exit animation after 1.2 seconds
     setTimeout(() => {
-      set({ toast: { message: null, visible: false } });
+      set((s) => ({
+        toasts: s.toasts.map(t => t.id === id ? { ...t, exiting: true } : t)
+      }));
+    }, 1200);
+    
+    // Remove from DOM after exit animation (300ms)
+    setTimeout(() => {
+      set((s) => ({ toasts: s.toasts.filter(t => t.id !== id) }));
     }, 1500);
+  },
+  
+  dismissToast: (id) => {
+    set((s) => ({ toasts: s.toasts.filter(t => t.id !== id) }));
   },
   
   // Entity lookup

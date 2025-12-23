@@ -5,35 +5,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { useRadarStore } from '@/store/gameStore';
-import { CAMERA, LOCATIONS, GLOBE, UI, INPUT } from '@/config/constants';
-
-// Calculate the forward direction vector for an aircraft based on heading
-function getAircraftForwardVector(lat: number, lon: number, heading: number): THREE.Vector3 {
-  const position = latLonToVector3(lat, lon, 0);
-  const up = position.clone().normalize();
-  
-  const latRad = lat * (Math.PI / 180);
-  const lonRad = lon * (Math.PI / 180);
-  
-  // North vector
-  const north = new THREE.Vector3(
-    Math.sin(latRad) * Math.cos(lonRad + Math.PI),
-    Math.cos(latRad),
-    -Math.sin(latRad) * Math.sin(lonRad + Math.PI)
-  ).normalize();
-  
-  north.sub(up.clone().multiplyScalar(north.dot(up))).normalize();
-  const east = new THREE.Vector3().crossVectors(up, north).normalize();
-  north.crossVectors(east, up).normalize();
-  
-  // Forward based on heading (add 90 to match aircraft orientation)
-  const headingRad = (heading + 90) * (Math.PI / 180);
-  
-  return new THREE.Vector3()
-    .addScaledVector(north, Math.cos(headingRad))
-    .addScaledVector(east, Math.sin(headingRad))
-    .normalize();
-}
+import { CAMERA, LOCATIONS, GLOBE, UI, INPUT, AIRPORTS } from '@/config/constants';
 
 function latLonToVector3(lat: number, lon: number, alt: number = 0): THREE.Vector3 {
   const r = 1 + alt * GLOBE.ALTITUDE_SCALE;
@@ -44,25 +16,6 @@ function latLonToVector3(lat: number, lon: number, alt: number = 0): THREE.Vecto
     r * Math.cos(phi),
     r * Math.sin(phi) * Math.sin(theta)
   );
-}
-
-// Predict position based on speed (knots) and heading after elapsed time (seconds)
-function predictPosition(
-  lat: number,
-  lon: number,
-  heading: number,
-  speedKnots: number,
-  elapsedSeconds: number
-): { lat: number; lon: number } {
-  const kmPerHour = speedKnots * 1.852;
-  const kmPerSecond = kmPerHour / 3600;
-  const earthCircumferenceKm = GLOBE.EARTH_CIRCUMFERENCE_KM;
-  const distanceDegreesEquator = (kmPerSecond * elapsedSeconds / earthCircumferenceKm) * 360;
-  const headingRad = heading * (Math.PI / 180);
-  const newLat = lat + distanceDegreesEquator * Math.cos(headingRad);
-  const lonScale = Math.cos(lat * Math.PI / 180);
-  const newLon = lon + (distanceDegreesEquator * Math.sin(headingRad)) / Math.max(0.1, lonScale);
-  return { lat: newLat, lon: newLon };
 }
 
 export function CameraController() {
@@ -131,12 +84,25 @@ export function CameraController() {
   const snapMode = useRadarStore((s) => s.gameState.snapMode);
   const toggleSnapMode = useRadarStore((s) => s.toggleSnapMode);
   
+  // View mode cycling (Q/E when aircraft selected)
+  const cycleViewMode = useRadarStore((s) => s.cycleViewMode);
+  
   // Helper to find nearest entity to camera center (respects activeMode)
+  // Helper to check if a small airport is visible (based on camera distance)
+  const isSmallAirportVisible = () => {
+    const cameraDistance = camera.position.length();
+    const opacity = Math.max(0, Math.min(1, (AIRPORTS.SMALL_AIRPORT_FADE_DISTANCE - cameraDistance) * AIRPORTS.SMALL_AIRPORT_FADE_SPEED));
+    return opacity > 0.1; // Consider visible if opacity > 10%
+  };
+  
   const findNearestEntity = () => {
     // Get current mode from store (avoids stale closure)
     const currentMode = useRadarStore.getState().gameState.activeMode;
     const currentAirports = useRadarStore.getState().airports;
     const currentAircraft = useRadarStore.getState().aircraft;
+    
+    // Check if small airports are visible at current zoom level
+    const smallAirportsVisible = isSmallAirportVisible();
     
     // Get viewport center using ray-sphere intersection
     const camPos = camera.position.clone();
@@ -166,6 +132,10 @@ export function CameraController() {
     // Check airports if mode allows
     if (currentMode === 'all' || currentMode === 'airport') {
       for (const airport of currentAirports) {
+        // Skip small airports if they're not visible (zoomed out too far)
+        const isLargeAirport = airport.type === 'large_airport';
+        if (!isLargeAirport && !smallAirportsVisible) continue;
+        
         const latDiff = airport.lat - lookLat;
         const lonDiff = airport.lon - lookLon;
         const dist = Math.sqrt(latDiff * latDiff + lonDiff * lonDiff);
@@ -201,6 +171,9 @@ export function CameraController() {
     const currentAirports = useRadarStore.getState().airports;
     const currentAircraft = useRadarStore.getState().aircraft;
     const currentHovered = useRadarStore.getState().gameState.hoveredEntity;
+    
+    // Check if small airports are visible at current zoom level
+    const smallAirportsVisible = isSmallAirportVisible();
     
     // Get viewport center - where camera is looking at on the globe surface
     // Cast a ray from camera in the view direction and intersect with unit sphere
@@ -267,6 +240,10 @@ export function CameraController() {
       for (const airport of currentAirports) {
         // Skip currently hovered
         if (currentHovered?.type === 'airport' && currentHovered.id === airport.icao) continue;
+        
+        // Skip small airports if they're not visible (zoomed out too far)
+        const isLargeAirport = airport.type === 'large_airport';
+        if (!isLargeAirport && !smallAirportsVisible) continue;
         
         // 2D distance (ignore altitude)
         const latDiff = airport.lat - refLat;
@@ -342,13 +319,26 @@ export function CameraController() {
     prevSnapMode.current = snapMode;
   }, [snapMode, hoverEntity]);
   
+  // Track if shift was used with other keys (so we don't toggle snap mode)
+  const shiftUsedWithOtherKeys = useRef(false);
+  // Track zoom held state for Shift+Up/Down
+  const zoomHeld = useRef({ in: false, out: false });
+  // Track tilt held state for Q/E when freecaming
+  const tiltHeld = useRef({ up: false, down: false });
+  
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Skip if in input field
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+      
       // Skip if another component already handled this (e.g. mode menu)
       if (e.defaultPrevented) return;
       
-      if (e.key === 'Shift') {
+      if (e.key === 'Shift' && !e.repeat) {
         isShiftHeld.current = true;
+        shiftUsedWithOtherKeys.current = false; // Reset on fresh shift press
       }
       
       // Escape: clear hover state and exit snap mode
@@ -360,73 +350,123 @@ export function CameraController() {
         return;
       }
       
-      // Shift (alone, no other keys): toggle snap mode
-      if (e.key === 'Shift' && !e.repeat && !e.ctrlKey && !e.altKey) {
-        // Will be handled on keyup for clean toggle
+      // Q/E: Cycle view modes when aircraft is selected, or tilt camera when freecaming
+      if (e.key === 'q' || e.key === 'Q') {
+        const selectedEntity = useRadarStore.getState().gameState.selectedEntity;
+        if (selectedEntity?.type === 'aircraft') {
+          if (!e.repeat) {
+            e.preventDefault();
+            cycleViewMode('prev');
+          }
+          return;
+        } else {
+          // Freecam: tilt camera up (more earth-oriented / look down at earth)
+          e.preventDefault();
+          tiltHeld.current.up = true;
+          return;
+        }
+      }
+      if (e.key === 'e' || e.key === 'E') {
+        const selectedEntity = useRadarStore.getState().gameState.selectedEntity;
+        if (selectedEntity?.type === 'aircraft') {
+          if (!e.repeat) {
+            e.preventDefault();
+            cycleViewMode('next');
+          }
+          return;
+        } else {
+          // Freecam: tilt camera down (less earth-oriented / look towards horizon)
+          e.preventDefault();
+          tiltHeld.current.down = true;
+          return;
+        }
       }
       
-      // Arrow keys behavior depends on snap mode
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+      // Shift+W/S or Shift+Up/Down: Zoom in/out
+      if (e.shiftKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'w' || e.key === 'W' || e.key === 's' || e.key === 'S')) {
+        e.preventDefault();
+        shiftUsedWithOtherKeys.current = true; // Mark shift as used with other keys
+        if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') zoomHeld.current.in = true;
+        if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') zoomHeld.current.out = true;
+        return;
+      }
+      
+      // Helper function for movement key handling
+      const handleMovementKey = (direction: 'up' | 'down' | 'left' | 'right') => {
         const currentSnapMode = useRadarStore.getState().gameState.snapMode;
         
         if (currentSnapMode && !e.repeat) {
           // Snap mode: navigate to entities
           e.preventDefault();
-          let direction: 'up' | 'down' | 'left' | 'right' | null = null;
-          if (e.key === 'ArrowUp') direction = 'up';
-          else if (e.key === 'ArrowDown') direction = 'down';
-          else if (e.key === 'ArrowLeft') direction = 'left';
-          else if (e.key === 'ArrowRight') direction = 'right';
-          
-          if (direction) {
-            const entity = findEntityInDirection(direction);
-            if (entity) {
-              setFocusLocation({ lat: entity.lat, lon: entity.lon });
-              hoverEntity({ type: entity.type, id: entity.id });
-            }
+          const entity = findEntityInDirection(direction);
+          if (entity) {
+            setFocusLocation({ lat: entity.lat, lon: entity.lon });
+            hoverEntity({ type: entity.type, id: entity.id });
           }
-          return;
+          return true;
         } else if (!currentSnapMode) {
-          // Freecam mode: pan
-          if (e.key === 'ArrowUp') arrowKeysHeld.current.up = true;
-          if (e.key === 'ArrowDown') arrowKeysHeld.current.down = true;
-          if (e.key === 'ArrowLeft') arrowKeysHeld.current.left = true;
-          if (e.key === 'ArrowRight') arrowKeysHeld.current.right = true;
-          
-          // Track that we're moving with arrows
-          const arrows = arrowKeysHeld.current;
-          if (arrows.up || arrows.down || arrows.left || arrows.right) {
-            wasMovingWithArrows.current = true;
+          // Freecam mode: pan - clear any hover state when starting to move
+          if (!wasMovingWithArrows.current) {
+            hoverEntity(null); // Clear hover when camera starts moving
           }
+          arrowKeysHeld.current[direction] = true;
+          wasMovingWithArrows.current = true;
+          return true;
         }
-      }
+        return false;
+      };
+      
+      // WASD keys (primary) - same behavior as arrow keys
+      if (e.key === 'w' || e.key === 'W') { handleMovementKey('up'); return; }
+      if (e.key === 's' || e.key === 'S') { handleMovementKey('down'); return; }
+      if (e.key === 'a' || e.key === 'A') { handleMovementKey('left'); return; }
+      if (e.key === 'd' || e.key === 'D') { handleMovementKey('right'); return; }
+      
+      // Arrow keys (secondary) - same behavior as WASD
+      if (e.key === 'ArrowUp') { handleMovementKey('up'); return; }
+      if (e.key === 'ArrowDown') { handleMovementKey('down'); return; }
+      if (e.key === 'ArrowLeft') { handleMovementKey('left'); return; }
+      if (e.key === 'ArrowRight') { handleMovementKey('right'); return; }
     };
     
     const handleKeyUp = (e: KeyboardEvent) => {
+      // Skip if in input field
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+      
       // Skip if another component already handled this (e.g. mode menu)
       if (e.defaultPrevented) return;
       
-      // Shift release: toggle snap mode (if no other modifiers were held)
-      if (e.key === 'Shift' && !e.ctrlKey && !e.altKey) {
-        toggleSnapMode();
-      }
+      // Release zoom keys
+      if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') zoomHeld.current.in = false;
+      if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') zoomHeld.current.out = false;
       
+      // Release tilt keys
+      if (e.key === 'q' || e.key === 'Q') tiltHeld.current.up = false;
+      if (e.key === 'e' || e.key === 'E') tiltHeld.current.down = false;
+      
+      // Shift release: toggle snap mode ONLY if shift wasn't used with other keys
       if (e.key === 'Shift') {
+        if (!shiftUsedWithOtherKeys.current && !e.ctrlKey && !e.altKey) {
+          toggleSnapMode();
+        }
         isShiftHeld.current = false;
+        shiftUsedWithOtherKeys.current = false;
       }
-      if (e.key === 'ArrowUp') arrowKeysHeld.current.up = false;
-      if (e.key === 'ArrowDown') arrowKeysHeld.current.down = false;
-      if (e.key === 'ArrowLeft') arrowKeysHeld.current.left = false;
-      if (e.key === 'ArrowRight') arrowKeysHeld.current.right = false;
       
-      // Reset arrow tracking when all released
+      // Release movement keys (both WASD and arrow keys)
+      if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') arrowKeysHeld.current.up = false;
+      if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') arrowKeysHeld.current.down = false;
+      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') arrowKeysHeld.current.left = false;
+      if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') arrowKeysHeld.current.right = false;
+      
+      // Reset movement tracking when all released
       const arrows = arrowKeysHeld.current;
       const noArrowsHeld = !arrows.up && !arrows.down && !arrows.left && !arrows.right;
       
       if (noArrowsHeld && wasMovingWithArrows.current) {
         wasMovingWithArrows.current = false;
-        // No longer auto-query for nearest entity when freecam stops
-        // Instead, snap mode toggle will find nearest entity
       }
     };
     
@@ -622,7 +662,7 @@ export function CameraController() {
       if (selectedAircraft && controlsRef.current) {
         // Save the current camera state BEFORE animating to the aircraft
         // Only save if we weren't already tracking something (prevSelectedId is null)
-        if (!prevSelectedId.current) {
+        if (!prevSelectedId.current && !prevSelectedAirportId.current) {
           savedCameraPosition.current.copy(camera.position);
           savedCameraTarget.current.copy(controlsRef.current.target);
         }
@@ -636,7 +676,7 @@ export function CameraController() {
         
         const { latitude, longitude, altitude, heading, speed } = selectedAircraft.position;
         
-        // Store server data for prediction and reset camera offset
+        // Store server data for prediction
         lastServerData.current = {
           lat: latitude,
           lon: longitude,
@@ -645,27 +685,15 @@ export function CameraController() {
           speed,
           time: Date.now(),
         };
-        currentCameraOffset.current.set(0, 0, 0); // Reset so it gets calculated fresh
+        currentCameraOffset.current.set(0, 0, 0);
         
-        const aircraftPos = latLonToVector3(latitude, longitude, altitude);
+        // Focus view (like airports) - just zoom to the location, not a close follow view
+        const targetPoint = latLonToVector3(latitude, longitude, 0);
+        const cameraDirection = targetPoint.clone().normalize();
         
-        // Get aircraft forward direction
-        const forward = getAircraftForwardVector(latitude, longitude, heading);
-        
-        // Camera distance behind the aircraft
-        const viewDistance = CAMERA.FOLLOW_DISTANCE;
-        
-        // Position camera directly behind the aircraft (level, not above)
-        // Just move back along the opposite of forward direction
-        const cameraOffset = forward.clone().multiplyScalar(-viewDistance);
-        
-        const cameraPos = aircraftPos.clone().add(cameraOffset);
-        
-        // Look at a point slightly ahead of the aircraft for better framing
-        const lookAhead = aircraftPos.clone().add(forward.clone().multiplyScalar(CAMERA.FOLLOW_LOOK_AHEAD));
-        
-        targetCameraPos.current.copy(cameraPos);
-        targetLookAt.current.copy(lookAhead);
+        // Zoom in to city-level distance, same as airports
+        targetCameraPos.current.copy(cameraDirection.multiplyScalar(CAMERA.CITY_ZOOM_DISTANCE));
+        targetLookAt.current.set(0, 0, 0);
       }
     }
     
@@ -772,44 +800,8 @@ export function CameraController() {
           animationPhase.current = 'direct';
         }
       }
-    } else if (selectedId && lastServerData.current && !isShiftHeld.current) {
-      // Chase view: continuously follow predicted aircraft position
-      const { lat, lon, alt, heading, speed, time } = lastServerData.current;
-      const elapsedSeconds = (Date.now() - time) / 1000;
-      
-      // Calculate predicted position with altitude prediction from V/S
-      let predictedLat = lat;
-      let predictedLon = lon;
-      
-      if (speed > 10 && elapsedSeconds < 120) {
-        const predicted = predictPosition(lat, lon, heading, speed, elapsedSeconds);
-        predictedLat = predicted.lat;
-        predictedLon = predicted.lon;
-      }
-      
-      const predictedAircraftPos = latLonToVector3(predictedLat, predictedLon, alt);
-      
-      // Get current camera offset from aircraft (preserve user's viewing angle)
-      if (currentCameraOffset.current.lengthSq() === 0) {
-        currentCameraOffset.current.copy(camera.position).sub(predictedAircraftPos);
-      }
-      
-      // Update the offset to maintain relative position as aircraft moves
-      // This makes the camera follow the plane smoothly
-      const targetCamPos = predictedAircraftPos.clone().add(currentCameraOffset.current);
-      
-      // Directly set camera position (faster follow)
-      camera.position.copy(targetCamPos);
-      
-      // Update look-at to predicted position
-      controlsRef.current.target.copy(predictedAircraftPos);
-      currentTarget.current.copy(predictedAircraftPos);
-      
-      // Enable rotation but disable damping during chase view to prevent drift
-      controlsRef.current.enableRotate = true;
-      controlsRef.current.enableDamping = false;
     } else {
-      // Re-enable damping when not in chase view
+      // Normal view - enable standard controls
       controlsRef.current.enableRotate = true;
       controlsRef.current.enableDamping = true;
     }
@@ -818,6 +810,47 @@ export function CameraController() {
     const cameraDistance = camera.position.length();
     const zoomBasedRotateSpeed = Math.max(CAMERA.ROTATE_SPEED_MIN, Math.min(CAMERA.ROTATE_SPEED_MAX, (cameraDistance - 1) * INPUT.KEYBOARD.ROTATE_ZOOM_SCALE));
     controlsRef.current.rotateSpeed = zoomBasedRotateSpeed;
+    
+    // Shift+Up/Down for keyboard zoom
+    const zoomIn = zoomHeld.current.in;
+    const zoomOut = zoomHeld.current.out;
+    
+    if (zoomIn || zoomOut) {
+      const zoomSpeed = CAMERA.ZOOM_SPEED_KEYBOARD * delta;
+      const currentDist = camera.position.length();
+      
+      if (zoomIn && currentDist > CAMERA.MIN_DISTANCE) {
+        // Zoom in: move closer
+        const newDist = Math.max(CAMERA.MIN_DISTANCE, currentDist - zoomSpeed);
+        camera.position.normalize().multiplyScalar(newDist);
+      } else if (zoomOut && currentDist < CAMERA.MAX_DISTANCE) {
+        // Zoom out: move farther
+        const newDist = Math.min(CAMERA.MAX_DISTANCE, currentDist + zoomSpeed);
+        camera.position.normalize().multiplyScalar(newDist);
+      }
+    }
+    
+    // Q/E for camera tilt (when freecaming, not following aircraft)
+    const tiltUp = tiltHeld.current.up;
+    const tiltDown = tiltHeld.current.down;
+    
+    if ((tiltUp || tiltDown) && !selectedEntity) {
+      const tiltSpeed = 0.8 * delta; // radians per second
+      
+      // Get current polar angle (angle from up vector)
+      const spherical = new THREE.Spherical().setFromVector3(camera.position);
+      
+      if (tiltUp) {
+        // Tilt towards earth (increase polar angle, look more down)
+        spherical.phi = Math.min(Math.PI * 0.85, spherical.phi + tiltSpeed);
+      } else if (tiltDown) {
+        // Tilt towards horizon (decrease polar angle, look more out)
+        spherical.phi = Math.max(0.15, spherical.phi - tiltSpeed);
+      }
+      
+      camera.position.setFromSpherical(spherical);
+      camera.lookAt(0, 0, 0);
+    }
     
     // Arrow keys for freecam movement (default behavior) - just moves camera, no entity interaction
     const arrows = arrowKeysHeld.current;

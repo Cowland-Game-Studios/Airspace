@@ -61,7 +61,7 @@ interface CharacterSlotProps {
 }
 
 const GLOW_COLORS = {
-  blue: 'text-[#00d4ff]',
+  blue: 'text-[#66aaff]',
   yellow: 'text-[#ffaa00]',
   green: 'text-[#00ff88]',
 };

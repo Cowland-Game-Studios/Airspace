@@ -1,10 +1,19 @@
 'use client';
 
 import { useRef, useState, useEffect } from 'react';
-import { useRadarStore, Aircraft, Airport } from '@/store/gameStore';
+import { useRadarStore, Aircraft, Airport, ViewMode } from '@/store/gameStore';
 import { EntityRef, getEntityTypeName } from '@/types/entities';
 import { ScrollingText } from '../ScrollingText';
 import { GLOBE, UI } from '@/config/constants';
+
+// View mode display names
+const VIEW_MODE_LABELS: Record<ViewMode, string> = {
+  focus: 'FOCUS',
+  chase: 'CHASE',
+  cockpit: 'COCKPIT',
+  orbit: 'ORBIT',
+  top: 'TOP',
+};
 
 // Predict position based on speed (knots) and heading after elapsed time (seconds)
 function predictPosition(
@@ -112,6 +121,9 @@ function AircraftInfoContent({
   aircraft: Aircraft; 
   glowColor: 'green' | 'yellow';
 }) {
+  const viewMode = useRadarStore((s) => s.gameState.viewMode);
+  const cycleViewMode = useRadarStore((s) => s.cycleViewMode);
+  
   // Track last server data for prediction
   const lastServerData = useRef({
     lat: aircraft.position.latitude,
@@ -132,9 +144,8 @@ function AircraftInfoContent({
     geoAlt: aircraft.position.geoAltitude,
   });
   
-  // Hover state to show last synced values instead of predicted
-  const [showLastSyncedPosition, setShowLastSyncedPosition] = useState(false);
-  const [showLastSyncedAltitude, setShowLastSyncedAltitude] = useState(false);
+  // Hover state to show last synced values instead of predicted (unified for all categories)
+  const [showLastSynced, setShowLastSynced] = useState(false);
   
   // Update server data when aircraft position changes
   useEffect(() => {
@@ -215,56 +226,56 @@ function AircraftInfoContent({
         {aircraft.spi && <span className="text-[#ff4444] animate-pulse">SPI</span>}
       </div>
       
-      {/* Position Section - Hover to show last synced */}
+      {/* Position Section - Hover to show last synced for all */}
       <div className="border-t border-[#1a1a1a] pt-2">
         <div 
           className="text-[#444] text-[9px] tracking-wider mb-1 cursor-pointer select-none"
-          onMouseEnter={() => setShowLastSyncedPosition(true)}
-          onMouseLeave={() => setShowLastSyncedPosition(false)}
+          onMouseEnter={() => setShowLastSynced(true)}
+          onMouseLeave={() => setShowLastSynced(false)}
         >
-          POSITION {showLastSyncedPosition 
-            ? <span className="text-[#00aaff]">(LAST SYNCED)</span>
+          POSITION {showLastSynced 
+            ? <span className="text-[#66aaff]">(LAST SYNCED)</span>
             : <span className="text-[#00ff88]">(PREDICTED)</span>
           }
         </div>
         <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
           <DataRow 
             label="LAT" 
-            value={formatCoord(showLastSyncedPosition ? lastServerData.current.lat : predicted.lat, true)} 
-            glowColor={showLastSyncedPosition ? 'blue' : glowColor} 
+            value={formatCoord(showLastSynced ? lastServerData.current.lat : predicted.lat, true)} 
+            glowColor={showLastSynced ? 'blue' : glowColor} 
           />
           <DataRow 
             label="LON" 
-            value={formatCoord(showLastSyncedPosition ? lastServerData.current.lon : predicted.lon, false)} 
-            glowColor={showLastSyncedPosition ? 'blue' : glowColor} 
+            value={formatCoord(showLastSynced ? lastServerData.current.lon : predicted.lon, false)} 
+            glowColor={showLastSynced ? 'blue' : glowColor} 
           />
         </div>
       </div>
       
-      {/* Altitude Section - Hover to show last synced */}
+      {/* Altitude Section - Hover to show last synced for all */}
       <div className="border-t border-[#1a1a1a] pt-2">
         <div 
           className="text-[#444] text-[9px] tracking-wider mb-1 cursor-pointer select-none"
-          onMouseEnter={() => setShowLastSyncedAltitude(true)}
-          onMouseLeave={() => setShowLastSyncedAltitude(false)}
+          onMouseEnter={() => setShowLastSynced(true)}
+          onMouseLeave={() => setShowLastSynced(false)}
         >
-          ALTITUDE {showLastSyncedAltitude 
-            ? <span className="text-[#00aaff]">(LAST SYNCED)</span>
+          ALTITUDE {showLastSynced 
+            ? <span className="text-[#66aaff]">(LAST SYNCED)</span>
             : <span className="text-[#00ff88]">(PREDICTED)</span>
           }
         </div>
         <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
           <DataRow 
             label="BARO" 
-            value={formatAltitude(showLastSyncedAltitude ? lastServerData.current.alt : predicted.alt)} 
-            glowColor={showLastSyncedAltitude ? 'blue' : glowColor} 
+            value={formatAltitude(showLastSynced ? lastServerData.current.alt : predicted.alt)} 
+            glowColor={showLastSynced ? 'blue' : glowColor} 
           />
           <DataRow 
             label="GPS" 
-            value={formatAltitude(showLastSyncedAltitude ? lastServerData.current.geoAlt : predicted.geoAlt)} 
-            glowColor={showLastSyncedAltitude ? 'blue' : glowColor} 
+            value={formatAltitude(showLastSynced ? lastServerData.current.geoAlt : predicted.geoAlt)} 
+            glowColor={showLastSynced ? 'blue' : glowColor} 
           />
-          <DataRow label="V/S" value={formatVerticalRate(aircraft.position.verticalRate)} glowColor={glowColor} />
+          <DataRow label="V/S" value={formatVerticalRate(aircraft.position.verticalRate)} glowColor={showLastSynced ? 'blue' : glowColor} />
         </div>
       </div>
       
@@ -281,6 +292,29 @@ function AircraftInfoContent({
       <div className="border-t border-[#1a1a1a] pt-2 flex justify-between text-[9px] select-none">
         <span className="text-[#444]">SRC: <ScrollingText text={getPositionSource(aircraft.positionSource)} className="text-[#666]" glowColor={glowColor} /></span>
         <span className="text-[#444]">LAST: <ScrollingText text={formatLastContact(aircraft.lastContact)} className="text-[#666]" glowColor={glowColor} /></span>
+      </div>
+      
+      {/* View Mode Selector */}
+      <div className="border-t border-[#1a1a1a] pt-2 select-none">
+        <div className="text-[#444] text-[9px] tracking-wider mb-1">VIEW MODE</div>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => cycleViewMode('prev')}
+            className="text-[#555] hover:text-[#00ff88] text-sm px-1 transition-colors"
+          >
+            ◀
+          </button>
+          <div className="flex-1 text-center">
+            <span className="text-[#00ff88] text-[10px] tracking-wider">{VIEW_MODE_LABELS[viewMode]}</span>
+          </div>
+          <button 
+            onClick={() => cycleViewMode('next')}
+            className="text-[#555] hover:text-[#00ff88] text-sm px-1 transition-colors"
+          >
+            ▶
+          </button>
+        </div>
+        <div className="text-[#333] text-[8px] text-center mt-1">Q / E to cycle</div>
       </div>
     </div>
   );
@@ -431,14 +465,14 @@ export function EntityInfoPanel({ onClose: _onClose }: EntityInfoPanelProps) {
             <span>{typeLabel}_INFO</span>
             <div className="flex items-center gap-2">
               {isHovering && !isSelected && (
-                <span className="text-[#ffaa00]">[ENTER]</span>
+                <span className="text-[#ffaa00]">[↵ SELECT]</span>
               )}
               {isSelected && isHoveringDifferent && (
                 <button 
                   onClick={handleAction}
                   className="text-[#ffaa00] hover:text-[#ffcc00] hover:bg-[#ffaa00]/10 px-1.5 transition-colors"
                 >
-                  [ENTER]
+                  [↵ SELECT]
                 </button>
               )}
               {isSelected && !isHoveringDifferent && (

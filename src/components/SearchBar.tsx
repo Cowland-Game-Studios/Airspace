@@ -276,7 +276,7 @@ export function SearchBar() {
   }, [results, selectedIndex, showResults, handleSelect]);
 
   return (
-    <div ref={containerRef} className="relative w-full">
+    <div ref={containerRef} className="relative w-full h-full">
       {/* Results dropdown - expands upward */}
       {showResults && results.length > 0 && (
         <div className="absolute bottom-full left-0 right-0 mb-1 bg-black/95 border border-[#1a1a1a] max-h-[300px] overflow-y-auto custom-scrollbar">
@@ -309,7 +309,7 @@ export function SearchBar() {
         onKeyDown={handleKeyDown}
         onFocus={() => query && setShowResults(true)}
         placeholder="search [/]"
-        className="w-full bg-black/30 backdrop-blur-md border border-[#333] px-3 py-1.5 text-[10px] text-white placeholder-[#555] focus:border-[#00ff88]/50 focus:outline-none"
+        className="w-full h-full bg-black/30 backdrop-blur-md border border-[#333] px-3 py-2 text-[10px] text-white placeholder-[#555] focus:border-[#00ff88]/50 focus:outline-none"
       />
       
       {isSearching && (

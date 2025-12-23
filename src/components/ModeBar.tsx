@@ -9,27 +9,55 @@ interface ModeBarProps {
   onModeChange?: (mode: EntityType | 'all') => void;
 }
 
-// SVG Icons
-const PlaneIcon = ({ active, highlighted }: { active: boolean; highlighted?: boolean }) => (
-  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={highlighted ? '#ffff00' : active ? '#00ff88' : '#555'} strokeWidth="2">
-    <path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/>
-  </svg>
-);
+// Mode colors - highlighted uses lighter shade
+const MODE_COLORS = {
+  all: { active: '#66aaff', inactive: '#335577', highlighted: '#88ccff' },      // Blue
+  aircraft: { active: '#00ff88', inactive: '#005533', highlighted: '#66ffaa' }, // Green
+  airport: { active: '#ffffff', inactive: '#555555', highlighted: '#cccccc' },  // White
+  missile: { active: '#ff4444', inactive: '#552222', highlighted: '#ff6666' },  // Red
+};
 
-const RunwayIcon = ({ active, highlighted }: { active: boolean; highlighted?: boolean }) => (
-  <span className={`text-sm font-bold ${highlighted ? 'text-yellow-400' : active ? 'text-[#00ff88]' : 'text-[#555]'}`}>═</span>
-);
+// SVG Icons with mode-specific colors
+const PlaneIcon = ({ active, highlighted }: { active: boolean; highlighted?: boolean }) => {
+  const colors = MODE_COLORS.aircraft;
+  const color = highlighted ? colors.highlighted : active ? colors.active : colors.inactive;
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2">
+      <path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/>
+    </svg>
+  );
+};
 
-const MissileIcon = ({ active, highlighted }: { active: boolean; highlighted?: boolean }) => (
-  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={highlighted ? '#ffff00' : active ? '#00ff88' : '#555'} strokeWidth="2">
-    <path d="M4 20L12 12M12 12L20 4M12 12L8 8M12 12L16 16"/>
-    <circle cx="20" cy="4" r="2"/>
-  </svg>
-);
+const RunwayIcon = ({ active, highlighted }: { active: boolean; highlighted?: boolean }) => {
+  const colors = MODE_COLORS.airport;
+  const color = highlighted ? colors.highlighted : active ? colors.active : colors.inactive;
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2">
+      {/* Runway rectangle with center line */}
+      <rect x="4" y="6" width="16" height="12" rx="1" />
+      <line x1="12" y1="8" x2="12" y2="10" strokeLinecap="round" />
+      <line x1="12" y1="12" x2="12" y2="14" strokeLinecap="round" />
+      <line x1="12" y1="16" x2="12" y2="16" strokeLinecap="round" />
+    </svg>
+  );
+};
 
-const AllIcon = ({ active, highlighted }: { active: boolean; highlighted?: boolean }) => (
-  <div className={`w-2.5 h-2.5 rounded-full ${highlighted ? 'bg-yellow-400' : active ? 'bg-[#00ff88]' : 'bg-[#555]'}`} />
-);
+const MissileIcon = ({ active, highlighted }: { active: boolean; highlighted?: boolean }) => {
+  const colors = MODE_COLORS.missile;
+  const color = highlighted ? colors.highlighted : active ? colors.active : colors.inactive;
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2">
+      <path d="M4 20L12 12M12 12L20 4M12 12L8 8M12 12L16 16"/>
+      <circle cx="20" cy="4" r="2"/>
+    </svg>
+  );
+};
+
+const AllIcon = ({ active, highlighted }: { active: boolean; highlighted?: boolean }) => {
+  const colors = MODE_COLORS.all;
+  const color = highlighted ? colors.highlighted : active ? colors.active : colors.inactive;
+  return <div className="w-2.5 h-2.5" style={{ backgroundColor: color }} />;
+};
 
 const HOLD_THRESHOLD = UI.TAB_HOLD_THRESHOLD;
 
@@ -93,14 +121,19 @@ export function ModeBar({ onModeChange }: ModeBarProps) {
     mousePressTime.current = null;
   }, []);
   
-  // Shift+Tab key handling: single click to cycle, long hold for menu
+  // Tab key handling: single click to cycle, long hold for menu
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Tab' && e.shiftKey) {
+      // Skip if in input field
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+      
+      if (e.key === 'Control' && !e.shiftKey && !e.altKey) {
         e.preventDefault();
         e.stopPropagation();
         
-        // Ignore key repeat events (when holding Tab)
+        // Ignore key repeat events (when holding Control)
         if (e.repeat) return;
         
         // Start tracking hold time (only on initial press)
@@ -118,11 +151,11 @@ export function ModeBar({ onModeChange }: ModeBarProps) {
       
       // Arrow keys for menu navigation - absorb events so map doesn't receive them
       if (menuOpen) {
-        if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+        if (e.key === 'ArrowUp' || e.key === 'ArrowLeft' || e.key === 'w' || e.key === 'W' || e.key === 'a' || e.key === 'A') {
           e.preventDefault();
           e.stopPropagation();
           setHighlightedIndex((prev) => (prev - 1 + modes.length) % modes.length);
-        } else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+        } else if (e.key === 'ArrowDown' || e.key === 'ArrowRight' || e.key === 's' || e.key === 'S' || e.key === 'd' || e.key === 'D') {
           e.preventDefault();
           e.stopPropagation();
           setHighlightedIndex((prev) => (prev + 1) % modes.length);
@@ -141,8 +174,8 @@ export function ModeBar({ onModeChange }: ModeBarProps) {
     };
     
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'Tab') {
-        // Only handle if we were tracking a Shift+Tab press
+      if (e.key === 'Control') {
+        // Only handle if we were tracking a Control press
         if (tabPressTime.current === null && !menuOpen) return;
         
         e.preventDefault();
@@ -248,13 +281,16 @@ export function ModeBar({ onModeChange }: ModeBarProps) {
           const isActive = activeMode === mode;
           const isHighlighted = highlightedIndex === idx;
           const count = counts[mode] || 0;
+          const colors = MODE_COLORS[mode];
+          const textColor = isHighlighted ? colors.highlighted : isActive ? colors.active : '#888';
           
           return (
             <div
               key={mode}
               className={`flex items-center gap-2 px-3 py-1.5 cursor-pointer transition-all duration-100 ${
-                isHighlighted ? 'bg-[#222] border-l-2 border-yellow-400' : 'border-l-2 border-transparent'
-              } ${isActive ? 'text-[#00ff88]' : 'text-white'}`}
+                isHighlighted ? 'bg-[#222] border-l-2' : 'border-l-2 border-transparent'
+              }`}
+              style={{ borderLeftColor: isHighlighted ? colors.highlighted : 'transparent' }}
               onClick={() => {
                 selectMode(mode);
                 setMenuOpen(false);
@@ -262,8 +298,8 @@ export function ModeBar({ onModeChange }: ModeBarProps) {
               onMouseEnter={() => setHighlightedIndex(idx)}
             >
               {getIcon(mode, isActive, isHighlighted)}
-              <span className={isHighlighted ? 'text-yellow-400' : ''}>{getLabel(mode)}</span>
-              <span className={`ml-auto ${isHighlighted ? 'text-yellow-400' : 'text-[#666]'}`}>{count}</span>
+              <span style={{ color: textColor }}>{getLabel(mode)}</span>
+              <span className="ml-auto" style={{ color: isHighlighted ? colors.highlighted : '#666' }}>{count}</span>
             </div>
           );
         })}
@@ -272,21 +308,22 @@ export function ModeBar({ onModeChange }: ModeBarProps) {
         </div>
       </div>
       
-      {/* TAB label on left */}
-      <span className="text-[#444]">[TAB]</span>
-      
       {/* Current mode indicator */}
       <div 
-        className={`flex items-center gap-1 bg-black/80 border px-2 py-1 transition-all duration-200 cursor-pointer select-none ${
-          menuOpen ? 'border-yellow-400/50' : 'border-[#222]'
+        className={`flex items-center gap-1 bg-black/30 backdrop-blur-md border h-full px-2 py-2 transition-all duration-200 cursor-pointer select-none ${
+          menuOpen ? 'border-[#66aaff]/50' : 'border-[#333]'
         }`}
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
       >
+        {/* Tab hint inside the box */}
+        <span className="text-[#444] text-[10px] mr-1">[CTRL]</span>
+        
         {modes.map((mode) => {
           const isActive = activeMode === mode;
           const count = counts[mode] || 0;
+          const colors = MODE_COLORS[mode];
           
           return (
             <button
@@ -299,8 +336,8 @@ export function ModeBar({ onModeChange }: ModeBarProps) {
               {getIcon(mode, isActive)}
               {isActive && (
                 <>
-                  <span className="text-[#00ff88]">{count}</span>
-                  <span className="text-white">{getLabel(mode)}</span>
+                  <span style={{ color: colors.active }}>{count}</span>
+                  <span style={{ color: colors.active }}>{getLabel(mode)}</span>
                 </>
               )}
             </button>

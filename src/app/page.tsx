@@ -3,6 +3,7 @@
 import dynamic from 'next/dynamic';
 import { Dashboard } from '@/components/Dashboard';
 import { DataPoller } from '@/components/DataPoller';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useRadarStore } from '@/store/gameStore';
 import { useState, useEffect } from 'react';
 
@@ -25,11 +26,11 @@ const LOADING_STAGES = [
 // Intro animation timing (ms)
 const INTRO_TIMING = {
   BORDERS_DELAY: 200,      // Start borders after loading fade begins
-  BORDERS_DURATION: 800,   // How long borders take to draw
-  AIRPORTS_DELAY: 600,     // Start airports after borders begin
-  AIRPORTS_DURATION: 600,  // How long airports take to appear
-  AIRCRAFT_DELAY: 1000,    // Start aircraft after airports begin
-  AIRCRAFT_DURATION: 800,  // How long aircraft fly-in takes
+  BORDERS_DURATION: 1500,  // How long borders take to draw (slower)
+  AIRPORTS_DELAY: 300,     // Start airports shortly after borders (overlap)
+  AIRPORTS_DURATION: 1200, // How long airports stagger in (left to right)
+  AIRCRAFT_DELAY: 800,     // Start aircraft after airports begin
+  AIRCRAFT_DURATION: 1200, // How long aircraft stagger in
 };
 
 function LoadingOverlay() {
@@ -149,11 +150,13 @@ function LoadingOverlay() {
 
 export default function Home() {
   return (
-    <main className="w-full h-screen overflow-hidden bg-black">
-      <Scene />
-      <Dashboard />
-      <DataPoller />
-      <LoadingOverlay />
-    </main>
+    <ErrorBoundary>
+      <main className="w-full h-screen overflow-hidden bg-black">
+        <Scene />
+        <Dashboard />
+        <DataPoller />
+        <LoadingOverlay />
+      </main>
+    </ErrorBoundary>
   );
 }

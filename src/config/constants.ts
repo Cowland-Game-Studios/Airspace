@@ -189,12 +189,12 @@ export const UI = {
 export const COLORS = {
   // Aircraft
   AIRCRAFT_DEFAULT: '#00ff88',
-  AIRCRAFT_SELECTED: '#00aaff',
-  AIRCRAFT_HOVERED: '#00ffaa',
+  AIRCRAFT_SELECTED: '#00ddff',
+  AIRCRAFT_HOVERED: '#00ffcc',
   
   // Airports
   AIRPORT_DEFAULT: '#ffffff',
-  AIRPORT_HOVERED: '#00ff88',
+  AIRPORT_HOVERED: '#00ff66',
   
   // UI
   UI_ACCENT: '#00ff88',
