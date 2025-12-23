@@ -4,7 +4,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { useRadarStore, Aircraft, Airport } from '@/store/gameStore';
 import { EntityType } from '@/types/entities';
 import { getEntityConfig } from '@/lib/entityRegistry';
-import { UI, COLORS } from '@/config/constants';
+import { UI } from '@/config/constants';
 import { TEXT, BG, BORDER } from '@/config/styles';
 import { useUIInput } from '@/hooks/useInputManager';
 import { InputAction } from '@/lib/inputManager';

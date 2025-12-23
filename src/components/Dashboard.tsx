@@ -8,7 +8,7 @@ import { ModeBar } from './ModeBar';
 import { useGlobalInput } from '@/hooks/useInputManager';
 import { InputAction } from '@/lib/inputManager';
 import { UI, COLORS } from '@/config/constants';
-import { TEXT, BG, BORDER, COMPONENT } from '@/config/styles';
+import { TEXT, BG, BORDER } from '@/config/styles';
 
 export function Dashboard() {
   const gameState = useRadarStore((state) => state.gameState);

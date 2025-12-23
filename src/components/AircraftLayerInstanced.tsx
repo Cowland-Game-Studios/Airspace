@@ -3,9 +3,9 @@
 import { useRef, useEffect, useMemo, useCallback } from 'react';
 import { useThree, useFrame, ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
-import { useRadarStore, Aircraft } from '@/store/gameStore';
+import { useRadarStore } from '@/store/gameStore';
 import { FlightPath } from './FlightPath';
-import { GLOBE, AIRCRAFT, COLORS } from '@/config/constants';
+import { AIRCRAFT, COLORS } from '@/config/constants';
 import { 
   getAircraftTriangleGeometry, 
   getAircraftPlaneGeometry,
@@ -174,7 +174,7 @@ export function AircraftLayerInstanced() {
     if (!meshRef.current || aircraft.length === 0) return;
     
     const mesh = meshRef.current;
-    const { dummy, color, frustum, projScreenMatrix, vec3_a, vec3_b } = allocs.current;
+    const { dummy, color, frustum, projScreenMatrix, vec3_a } = allocs.current;
     const now = Date.now();
     const elapsedTime = state.clock.elapsedTime;
     

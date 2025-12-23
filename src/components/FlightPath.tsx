@@ -4,7 +4,7 @@ import { useMemo, useEffect, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useRadarStore, TrackWaypoint, Aircraft } from '@/store/gameStore';
-import { GLOBE, FLIGHT_PATH, COLORS } from '@/config/constants';
+import { FLIGHT_PATH, COLORS } from '@/config/constants';
 import { latLonToVector3, interpolateOnGlobe } from '@/utils/geo';
 
 // ============================================================================
