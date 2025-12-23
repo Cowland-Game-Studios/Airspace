@@ -283,7 +283,7 @@ export function SearchBar() {
   }, [results, selectedIndex, showResults, handleSelect]);
 
   return (
-    <div ref={containerRef} className="relative w-full h-full">
+    <div ref={containerRef} className="relative w-full">
       {/* Results dropdown - expands upward */}
       {showResults && results.length > 0 && (
         <div className={`absolute bottom-full left-0 right-0 mb-1 ${BG.PANEL_BLUR} ${BORDER.PANEL_SUBTLE} max-h-[300px] overflow-y-auto custom-scrollbar`}>
@@ -315,8 +315,8 @@ export function SearchBar() {
         onChange={handleChange}
         onKeyDown={handleKeyDown}
         onFocus={() => query && setShowResults(true)}
-        placeholder="[space]"
-        className={`w-full h-full ${BG.GLASS_BLUR} ${BORDER.PANEL} px-3 py-2 ${TEXT.BASE} ${TEXT.PRIMARY} placeholder-[#555] ${BORDER.FOCUS} focus:outline-none`}
+        placeholder="[SPACE]"
+        className={`w-full ${BG.GLASS_BLUR} ${BORDER.PANEL} px-3 py-2 ${TEXT.BASE} ${TEXT.PRIMARY} placeholder-[#555] ${BORDER.FOCUS} focus:outline-none`}
       />
       
       {isSearching && (

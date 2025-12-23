@@ -290,7 +290,7 @@ export function ModeBar({ onModeChange }: ModeBarProps) {
       {/* Current mode indicator */}
       <div 
         ref={containerRef}
-        className={`relative flex items-center gap-1 ${BG.GLASS_BLUR} border h-full px-2 py-2 transition-all duration-200 cursor-pointer select-none ${
+        className={`relative flex items-center gap-1 ${BG.GLASS_BLUR} border px-2 py-2 transition-all duration-200 cursor-pointer select-none ${
           menuOpen ? BORDER.ACCENT_BLUE : BORDER.DEFAULT
         }`}
         onMouseDown={handleMouseDown}

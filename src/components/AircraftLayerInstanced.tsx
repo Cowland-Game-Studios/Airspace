@@ -371,11 +371,12 @@ export function AircraftLayerInstanced() {
         />
       </instancedMesh>
       
-      {/* Visible instanced mesh for all aircraft */}
+      {/* Visible instanced mesh for all aircraft - raycast disabled, hitbox handles events */}
       <instancedMesh
         ref={meshRef}
         args={[geometry, undefined, aircraft.length]}
         frustumCulled={false}
+        raycast={() => null}
       >
         <meshBasicMaterial 
           color={COLORS.AIRCRAFT_DEFAULT}

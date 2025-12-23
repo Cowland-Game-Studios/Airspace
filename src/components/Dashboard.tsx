@@ -57,7 +57,7 @@ export function Dashboard() {
       
       {/* Bottom Bar */}
       <div className="absolute bottom-0 left-0 right-0 p-3 pointer-events-auto">
-        <div className="flex items-stretch gap-3">
+        <div className="flex gap-3">
           {/* Left: Mode Bar */}
           <div 
             className={`shrink-0 ${animateIn ? 'bottom-bar-item animate-in' : 'bottom-bar-item'}`} 
@@ -74,17 +74,16 @@ export function Dashboard() {
             <SearchBar />
           </div>
       
-          {/* Right: Branding */}
+          {/* Right: Hints & Branding */}
           <div 
-            className={`shrink-0 flex items-center justify-center ${BG.GLASS_BLUR} ${BORDER.PANEL} px-3 ${animateIn ? 'bottom-bar-item animate-in' : 'bottom-bar-item'} group cursor-default`}
+            className={`shrink-0 flex flex-col justify-center text-right ${BG.GLASS_BLUR} ${BORDER.PANEL} px-3 py-2 gap-0.5 ${animateIn ? 'bottom-bar-item animate-in' : 'bottom-bar-item'}`}
             style={{ '--item-index': 2 } as React.CSSProperties}
           >
-            <span className={`${TEXT.XS} ${TEXT.MUTED} tracking-widest transition-opacity duration-200 group-hover:opacity-0 absolute`}>
-              BULLHORN AEROSYSTEMS
-            </span>
-            <span className={`${TEXT.XS} ${TEXT.MUTED} tracking-widest transition-opacity duration-200 opacity-0 group-hover:opacity-100`}>
-              COMMERCIAL — V1.0.2
-            </span>
+            <div className={`${TEXT.XS} ${TEXT.MUTED}`}>WASD: move | ⇧+W/S: zoom | TAB: modes</div>
+            <div className={`${TEXT.XS} ${TEXT.MUTED} group cursor-default`}>
+              <span className="transition-opacity duration-200 group-hover:opacity-0">BULLHORN AEROSYSTEMS</span>
+              <span className="transition-opacity duration-200 opacity-0 group-hover:opacity-100 absolute right-3">COMMERCIAL — V1.0.2</span>
+            </div>
           </div>
         </div>
       </div>
