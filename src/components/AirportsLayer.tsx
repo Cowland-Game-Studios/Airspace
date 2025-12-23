@@ -170,11 +170,19 @@ function SmallAirportsInstanced({ airports }: { airports: Airport[] }) {
     
     const cameraDistance = camera.position.length();
     // Only show when very zoomed in
-    const opacity = Math.max(0, Math.min(1, (AIRPORTS.SMALL_AIRPORT_FADE_DISTANCE - cameraDistance) * AIRPORTS.SMALL_AIRPORT_FADE_SPEED));
+    const baseOpacity = Math.max(0, Math.min(1, (AIRPORTS.SMALL_AIRPORT_FADE_DISTANCE - cameraDistance) * AIRPORTS.SMALL_AIRPORT_FADE_SPEED));
     
     const material = meshRef.current.material as THREE.MeshBasicMaterial;
-    material.opacity = opacity * AIRPORTS.SMALL_AIRPORT_MAX_OPACITY;
-    meshRef.current.visible = opacity > 0.01;
+    
+    // If any small airport is hovered, make layer fully visible
+    const isHovered = hoveredAirport && indexToIcao.includes(hoveredAirport);
+    if (isHovered) {
+      material.opacity = 1.0;
+      meshRef.current.visible = true;
+    } else {
+      material.opacity = baseOpacity * AIRPORTS.SMALL_AIRPORT_MAX_OPACITY;
+      meshRef.current.visible = baseOpacity > 0.01;
+    }
   });
   
   const handlePointerOver = (e: ThreeEvent<PointerEvent>) => {

@@ -9,7 +9,7 @@
 
 export const CAMERA = {
   // Distance limits
-  MIN_DISTANCE: 0.15,          // Minimum zoom (closest to globe)
+  MIN_DISTANCE: 1.15,          // Minimum zoom (above globe surface, radius = 1)
   MAX_DISTANCE: 5,             // Maximum zoom (furthest from globe)
   DEFAULT_DISTANCE: 2.5,       // Default camera distance on load
   CITY_ZOOM_DISTANCE: 1.15,    // Zoom level when viewing a city
@@ -91,7 +91,7 @@ export const AIRPORTS = {
   SMALL_AIRPORT_SIZE: 0.0012,     // Small airport square size
   
   // Visibility
-  SMALL_AIRPORT_FADE_DISTANCE: 1.5,  // Camera distance where small airports start fading
+  SMALL_AIRPORT_FADE_DISTANCE: 1.25, // Camera distance where small airports start fading (lower = fade sooner)
   SMALL_AIRPORT_FADE_SPEED: 3,       // Fade speed multiplier
   SMALL_AIRPORT_MAX_OPACITY: 0.5,    // Maximum opacity for small airports
 } as const;

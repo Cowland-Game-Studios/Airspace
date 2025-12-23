@@ -179,7 +179,7 @@ function AircraftInfoContent({
   }, []);
   
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 select-none">
       {/* Header - Callsign & ICAO */}
       <div className="flex items-start justify-between gap-3 border-b border-[#1a1a1a] pb-2">
         <div className="flex-1 min-w-0">
@@ -278,7 +278,7 @@ function AircraftInfoContent({
       </div>
       
       {/* Data Source */}
-      <div className="border-t border-[#1a1a1a] pt-2 flex justify-between text-[9px]">
+      <div className="border-t border-[#1a1a1a] pt-2 flex justify-between text-[9px] select-none">
         <span className="text-[#444]">SRC: <ScrollingText text={getPositionSource(aircraft.positionSource)} className="text-[#666]" glowColor={glowColor} /></span>
         <span className="text-[#444]">LAST: <ScrollingText text={formatLastContact(aircraft.lastContact)} className="text-[#666]" glowColor={glowColor} /></span>
       </div>
@@ -298,7 +298,7 @@ function AirportInfoContent({
   glowColor: 'green' | 'yellow';
 }) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 select-none">
       {/* Header - ICAO & IATA */}
       <div className="flex items-start justify-between gap-3 border-b border-[#1a1a1a] pb-2">
         <div className="flex-1 min-w-0">

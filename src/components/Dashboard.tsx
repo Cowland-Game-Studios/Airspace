@@ -10,6 +10,7 @@ export function Dashboard() {
   const gameState = useRadarStore((state) => state.gameState);
   const selectEntity = useRadarStore((state) => state.selectEntity);
   const locationReady = useRadarStore((state) => state.locationReady);
+  const toast = useRadarStore((state) => state.toast);
   
   // Delay animation start until after loading screen fades
   const [animateIn, setAnimateIn] = useState(false);
@@ -78,9 +79,22 @@ export function Dashboard() {
             className={`text-right ${animateIn ? 'bottom-bar-item animate-in' : 'bottom-bar-item'}`}
             style={{ '--item-index': 2 } as React.CSSProperties}
           >
-            <div className="text-[8px] text-[#444]">arrows: pan | shift+↑↓: zoom | ctrl+shift+arrows: snap</div>
-            <div className="text-[8px] text-[#444]">bullhorn aerosystems (commercial) v1.2</div>
+            <div className="text-[8px] text-[#444]">arrows: pan/snap | shift: toggle snap | shift+tab: filter</div>
+            <div className="text-[8px] text-[#444]">Bullhorn Aerosystems (commercial - v1.0.2)</div>
           </div>
+        </div>
+      </div>
+      
+      {/* Toast notification - Bottom Right */}
+      <div 
+        className={`absolute bottom-20 right-4 pointer-events-none transition-all duration-300 ${
+          toast.visible 
+            ? 'opacity-100 translate-y-0' 
+            : 'opacity-0 translate-y-2'
+        }`}
+      >
+        <div className="bg-black/80 backdrop-blur-sm border border-[#333] px-4 py-2 text-xs text-white tracking-widest">
+          {toast.message}
         </div>
       </div>
       

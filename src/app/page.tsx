@@ -73,9 +73,9 @@ function LoadingOverlay() {
       style={{ transitionDelay: locationReady ? '200ms' : '0ms' }}
     >
       <div className="relative" style={{ width: '320px', height: '70px' }}>
-        {/* Commercial version label - top */}
+        {/* Commercial edition label - top */}
         <div className="absolute top-0 left-0 right-0 text-center text-[10px] text-[#555] tracking-[0.15em]">
-          commercial version
+          COMMERCIAL EDITION
         </div>
         
         {/* Main title with reveal effect - absolutely positioned */}
@@ -87,12 +87,10 @@ function LoadingOverlay() {
             </span>
             {/* White overlay that reveals left to right */}
             <div 
-              className="absolute top-0 left-0 text-white overflow-hidden"
+              className="absolute top-0 left-0 text-white overflow-hidden whitespace-nowrap"
               style={{ width: `${progress}%` }}
             >
-              <span className="whitespace-nowrap">
-                BULLHORN AEROSYSTEMS
-              </span>
+              BULLHORN AEROSYSTEMS
             </div>
           </div>
         </div>

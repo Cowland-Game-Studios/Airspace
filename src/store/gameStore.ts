@@ -88,12 +88,18 @@ interface GameState {
   focusLocation: FocusLocation | null;
   restoreCameraFlag: number; // Increment to trigger camera restore
   activeMode: 'all' | 'aircraft' | 'airport' | 'missile';
+  snapMode: boolean; // Snap mode for arrow key entity navigation
   isPlaying: boolean;
   isPaused: boolean;
   controlledAircraft: Set<string>;
   score: number;
   landedAircraft: string[];
   crashedAircraft: string[];
+}
+
+interface ToastState {
+  message: string | null;
+  visible: boolean;
 }
 
 // ============================================================================
@@ -121,6 +127,11 @@ interface Store {
   setFocusLocation: (loc: FocusLocation | null) => void;
   restoreCamera: () => void;
   setActiveMode: (mode: 'all' | 'aircraft' | 'airport' | 'missile') => void;
+  toggleSnapMode: () => void;
+  
+  // Toast state
+  toast: ToastState;
+  showToast: (message: string) => void;
   
   // Entity lookup
   getAircraftById: (id: string) => Aircraft | undefined;
@@ -170,12 +181,19 @@ export const useRadarStore = create<Store>((set, get) => ({
     focusLocation: null,
     restoreCameraFlag: 0,
     activeMode: 'all',
+    snapMode: false,
     isPlaying: false,
     isPaused: false,
     controlledAircraft: new Set(),
     score: 0,
     landedAircraft: [],
     crashedAircraft: [],
+  },
+  
+  // Toast state
+  toast: {
+    message: null,
+    visible: false,
   },
   
   // Entity actions
@@ -198,6 +216,23 @@ export const useRadarStore = create<Store>((set, get) => ({
   setActiveMode: (mode) => set((s) => ({
     gameState: { ...s.gameState, activeMode: mode },
   })),
+  
+  toggleSnapMode: () => {
+    const newSnapMode = !get().gameState.snapMode;
+    set((s) => ({
+      gameState: { ...s.gameState, snapMode: newSnapMode },
+    }));
+    // Show toast when toggling
+    get().showToast(newSnapMode ? 'SNAP MODE ON' : 'SNAP MODE OFF');
+  },
+  
+  showToast: (message) => {
+    set({ toast: { message, visible: true } });
+    // Auto-hide after 1.5 seconds
+    setTimeout(() => {
+      set({ toast: { message: null, visible: false } });
+    }, 1500);
+  },
   
   // Entity lookup
   getAircraftById: (id) => get().aircraft.find(a => a.id === id),

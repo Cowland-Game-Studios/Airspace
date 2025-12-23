@@ -93,10 +93,10 @@ export function ModeBar({ onModeChange }: ModeBarProps) {
     mousePressTime.current = null;
   }, []);
   
-  // Tab key handling: single click to cycle, long hold for menu
+  // Shift+Tab key handling: single click to cycle, long hold for menu
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Tab') {
+      if (e.key === 'Tab' && e.shiftKey) {
         e.preventDefault();
         e.stopPropagation();
         
@@ -142,6 +142,9 @@ export function ModeBar({ onModeChange }: ModeBarProps) {
     
     const handleKeyUp = (e: KeyboardEvent) => {
       if (e.key === 'Tab') {
+        // Only handle if we were tracking a Shift+Tab press
+        if (tabPressTime.current === null && !menuOpen) return;
+        
         e.preventDefault();
         e.stopPropagation();
         
