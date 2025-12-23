@@ -15,6 +15,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Bullhorn Aerosystems",
   description: "Open source aerosystem defence engine with commercial airlines as interface example",
+  icons: {
+    icon: "/@bullhorn.png",
+    apple: "/@bullhorn.png",
+  },
 };
 
 export default function RootLayout({

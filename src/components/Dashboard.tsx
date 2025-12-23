@@ -76,7 +76,8 @@ export function Dashboard() {
             style={{ '--item-index': 2 } as React.CSSProperties}
           >
             <div className={`${TEXT.XS} ${TEXT.MUTED}`}>WASD: move | ⇧+W/S: zoom | TAB: modes</div>
-            <div className={`${TEXT.XS} ${TEXT.MUTED} group cursor-default`}>
+            <div className={`${TEXT.XS} ${TEXT.MUTED} group cursor-default flex items-center justify-end gap-1.5`}>
+              <img src="/@bullhorn.png" alt="" className="w-3 h-3 opacity-50" />
               <span className="transition-opacity duration-200 group-hover:opacity-0">BULLHORN AEROSYSTEMS</span>
               <span className="transition-opacity duration-200 opacity-0 group-hover:opacity-100 absolute right-3">COMMERCIAL — V1.0.2</span>
             </div>

@@ -30,8 +30,8 @@ Open source aerosystem defence engine with commercial airlines as interface exam
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/Cowland-Game-Studios/Airspace.git
-   cd Airspace
+   git clone https://github.com/Mootbing/Bullhorn-Aerosystems.git
+   cd Bullhorn-Aerosystems
    ```
 
 2. **Install dependencies**
