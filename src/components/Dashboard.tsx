@@ -79,7 +79,7 @@ export function Dashboard() {
             className={`shrink-0 flex flex-col justify-center text-right bg-black/30 backdrop-blur-md border border-[#333] px-3 ${animateIn ? 'bottom-bar-item animate-in' : 'bottom-bar-item'}`}
             style={{ '--item-index': 2 } as React.CSSProperties}
           >
-            <div className="text-[8px] text-[#555]">WASD: move | ⇧+W/S: zoom | Q/E: tilt | CTRL: filter</div>
+            <div className="text-[8px] text-[#555]">WASD: move | ⇧+W/S: zoom | Q/E: tilt | TAB: filter | SPACE: search</div>
             <div className="text-[8px] text-[#555]">Bullhorn Aerosystems (commercial - v1.0.2)</div>
           </div>
         </div>

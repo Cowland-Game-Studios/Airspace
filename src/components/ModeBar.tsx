@@ -76,6 +76,11 @@ export function ModeBar({ onModeChange }: ModeBarProps) {
   const mousePressTime = useRef<number | null>(null);
   const mouseHoldTimeout = useRef<NodeJS.Timeout | null>(null);
   
+  // Animated highlight state
+  const containerRef = useRef<HTMLDivElement>(null);
+  const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const [highlightStyle, setHighlightStyle] = useState({ left: 0, width: 0 });
+  
   const counts: Record<string, number> = {
     all: aircraft.length + airports.length,
     aircraft: aircraft.length,
@@ -87,6 +92,23 @@ export function ModeBar({ onModeChange }: ModeBarProps) {
     setActiveMode(mode);
     onModeChange?.(mode);
   }, [setActiveMode, onModeChange]);
+  
+  // Update highlight position when active mode changes
+  useEffect(() => {
+    const activeIndex = modes.indexOf(activeMode);
+    const button = buttonRefs.current[activeIndex];
+    const container = containerRef.current;
+    
+    if (button && container) {
+      const containerRect = container.getBoundingClientRect();
+      const buttonRect = button.getBoundingClientRect();
+      
+      setHighlightStyle({
+        left: buttonRect.left - containerRect.left,
+        width: buttonRect.width,
+      });
+    }
+  }, [activeMode, modes, counts]); // counts dependency ensures recalc when numbers change
   
   // Long-click handling for mode bar
   const handleMouseDown = useCallback(() => {
@@ -129,11 +151,11 @@ export function ModeBar({ onModeChange }: ModeBarProps) {
         return;
       }
       
-      if (e.key === 'Control' && !e.shiftKey && !e.altKey) {
+      if (e.key === 'Tab' && !e.shiftKey && !e.ctrlKey && !e.altKey) {
         e.preventDefault();
         e.stopPropagation();
         
-        // Ignore key repeat events (when holding Control)
+        // Ignore key repeat events (when holding Tab)
         if (e.repeat) return;
         
         // Start tracking hold time (only on initial press)
@@ -174,8 +196,8 @@ export function ModeBar({ onModeChange }: ModeBarProps) {
     };
     
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'Control') {
-        // Only handle if we were tracking a Control press
+      if (e.key === 'Tab') {
+        // Only handle if we were tracking a Tab press
         if (tabPressTime.current === null && !menuOpen) return;
         
         e.preventDefault();
@@ -310,17 +332,28 @@ export function ModeBar({ onModeChange }: ModeBarProps) {
       
       {/* Current mode indicator */}
       <div 
-        className={`flex items-center gap-1 bg-black/30 backdrop-blur-md border h-full px-2 py-2 transition-all duration-200 cursor-pointer select-none ${
+        ref={containerRef}
+        className={`relative flex items-center gap-1 bg-black/30 backdrop-blur-md border h-full px-2 py-2 transition-all duration-200 cursor-pointer select-none ${
           menuOpen ? 'border-[#66aaff]/50' : 'border-[#333]'
         }`}
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
       >
-        {/* Tab hint inside the box */}
-        <span className="text-[#444] text-[10px] mr-1">[CTRL]</span>
+        {/* Animated highlight background */}
+        <div 
+          className="absolute top-1 bottom-1 bg-[#111] rounded-sm transition-all duration-300 ease-out pointer-events-none"
+          style={{
+            left: highlightStyle.left,
+            width: highlightStyle.width,
+            opacity: highlightStyle.width > 0 ? 1 : 0,
+          }}
+        />
         
-        {modes.map((mode) => {
+        {/* Tab hint inside the box */}
+        <span className="text-[#444] text-[10px] mr-1 relative z-10">[TAB]</span>
+        
+        {modes.map((mode, index) => {
           const isActive = activeMode === mode;
           const count = counts[mode] || 0;
           const colors = MODE_COLORS[mode];
@@ -328,10 +361,9 @@ export function ModeBar({ onModeChange }: ModeBarProps) {
           return (
             <button
               key={mode}
+              ref={(el) => { buttonRefs.current[index] = el; }}
               onClick={() => selectMode(mode)}
-              className={`flex items-center gap-1.5 px-1.5 py-0.5 transition-all ${
-                isActive ? 'bg-[#111]' : 'hover:bg-[#0a0a0a]'
-              }`}
+              className="relative z-10 flex items-center gap-1.5 px-1.5 py-0.5 transition-colors"
             >
               {getIcon(mode, isActive)}
               {isActive && (

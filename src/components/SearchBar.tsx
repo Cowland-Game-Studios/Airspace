@@ -222,7 +222,7 @@ export function SearchBar() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      if (e.key === '/') {
+      if (e.key === ' ' || e.code === 'Space') {
         e.preventDefault();
         inputRef.current?.focus();
       }
