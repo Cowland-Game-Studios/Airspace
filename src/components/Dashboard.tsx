@@ -74,13 +74,17 @@ export function Dashboard() {
             <SearchBar />
           </div>
       
-          {/* Right: Hints & Version */}
+          {/* Right: Branding */}
           <div 
-            className={`shrink-0 flex flex-col justify-center text-right ${BG.GLASS_BLUR} ${BORDER.PANEL} px-3 ${animateIn ? 'bottom-bar-item animate-in' : 'bottom-bar-item'}`}
+            className={`shrink-0 flex items-center justify-center ${BG.GLASS_BLUR} ${BORDER.PANEL} px-3 ${animateIn ? 'bottom-bar-item animate-in' : 'bottom-bar-item'} group cursor-default`}
             style={{ '--item-index': 2 } as React.CSSProperties}
           >
-            <div className={`${TEXT.XS} ${TEXT.MUTED}`}>WASD: move | ⇧+W/S: zoom | Q/E: tilt | TAB: filter | SPACE: search</div>
-            <div className={`${TEXT.XS} ${TEXT.MUTED}`}>Bullhorn Aerosystems (commercial - v1.0.2)</div>
+            <span className={`${TEXT.XS} ${TEXT.MUTED} tracking-widest transition-opacity duration-200 group-hover:opacity-0 absolute`}>
+              BULLHORN AEROSYSTEMS
+            </span>
+            <span className={`${TEXT.XS} ${TEXT.MUTED} tracking-widest transition-opacity duration-200 opacity-0 group-hover:opacity-100`}>
+              COMMERCIAL — V1.0.2
+            </span>
           </div>
         </div>
       </div>

@@ -315,7 +315,7 @@ export function SearchBar() {
         onChange={handleChange}
         onKeyDown={handleKeyDown}
         onFocus={() => query && setShowResults(true)}
-        placeholder="search [space]"
+        placeholder="[space]"
         className={`w-full h-full ${BG.GLASS_BLUR} ${BORDER.PANEL} px-3 py-2 ${TEXT.BASE} ${TEXT.PRIMARY} placeholder-[#555] ${BORDER.FOCUS} focus:outline-none`}
       />
       
