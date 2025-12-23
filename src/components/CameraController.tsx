@@ -23,6 +23,7 @@ export function CameraController() {
   const airports = useRadarStore((state) => state.airports);
   const setLocationReady = useRadarStore((state) => state.setLocationReady);
   const setIntroPhase = useRadarStore((state) => state.setIntroPhase);
+  const setLoadingProgress = useRadarStore((state) => state.setLoadingProgress);
   const hoverEntity = useRadarStore((state) => state.hoverEntity);
   const setFocusLocation = useRadarStore((state) => state.setFocusLocation);
   
@@ -419,9 +420,12 @@ export function CameraController() {
     controlsRef.current.target.set(0, 0, 0);
     currentTarget.current.set(0, 0, 0);
     
+    // Force loading progress to 100% to complete border drawing animation immediately
+    setLoadingProgress(100);
+    
     // Signal that location is ready - allow data fetching to begin
     setLocationReady(true);
-  }, [initialLocation, controlsReady, camera, setLocationReady]);
+  }, [initialLocation, controlsReady, camera, setLocationReady, setLoadingProgress]);
   
   // Focus on a specific location (from search, etc.) - flyover animation
   const prevFocusLocation = useRef<{ lat: number; lon: number } | null>(null);

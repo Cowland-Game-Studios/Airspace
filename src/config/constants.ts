@@ -126,8 +126,8 @@ export const AIRPORTS = {
 
 export const BORDERS = {
   DRAW_DURATION: 3.5,   // Seconds - synced to finish when loading completes (0% → 100%)
-  DRAW_OPACITY: 0.1,    // Opacity while drawing (10%)
-  FINAL_OPACITY: 0.5,   // Opacity after drawing complete (50%)
+  DRAW_OPACITY: 0.25,   // Opacity while drawing (25%)
+  FINAL_OPACITY: 1.0,   // Opacity after drawing complete (100%)
   FADE_IN_DURATION: 0.8, // Seconds to fade from DRAW_OPACITY to FINAL_OPACITY
 } as const;
 
