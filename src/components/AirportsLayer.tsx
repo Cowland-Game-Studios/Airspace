@@ -329,6 +329,8 @@ function SmallAirportsInstanced({ airports }: { airports: Airport[] }) {
     
     const smoothFactor = Math.min(delta * AIRPORTS.OPACITY_SMOOTH_FACTOR, 0.25);
     
+    const hoveredIdx = hoveredAirport ? indexToIcao.indexOf(hoveredAirport) : -1;
+    
     for (let i = 0; i < positions.length; i++) {
       const pos = positions[i];
       dummy.position.copy(pos);
@@ -345,10 +347,20 @@ function SmallAirportsInstanced({ airports }: { airports: Airport[] }) {
       const swoopScale = animationStarted.current ? swoopEase(individualProgress) : 0;
       const targetVisibility = calculateViewVisibility(pos, camera);
       
-      instanceOpacities.current[i] += (targetVisibility - instanceOpacities.current[i]) * smoothFactor;
+      const isHovered = i === hoveredIdx;
+      
+      // Hovered airport gets full visibility, others use smooth transition
+      if (isHovered) {
+        instanceOpacities.current[i] = 1;
+      } else {
+        instanceOpacities.current[i] += (targetVisibility - instanceOpacities.current[i]) * smoothFactor;
+      }
       const smoothVisibility = instanceOpacities.current[i];
       
-      dummy.scale.setScalar(swoopScale * smoothVisibility);
+      // Boost scale for hovered airport to stand out more
+      const hoverBoost = isHovered ? 1.8 : 1;
+      
+      dummy.scale.setScalar(swoopScale * smoothVisibility * hoverBoost);
       dummy.updateMatrix();
       meshRef.current!.setMatrixAt(i, dummy.matrix);
     }
