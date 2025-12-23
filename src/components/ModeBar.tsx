@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { EntityType } from '@/types/entities';
 import { useRadarStore } from '@/store/gameStore';
 import { UI } from '@/config/constants';
+import { useUIInput } from '@/hooks/useInputManager';
+import { InputAction } from '@/lib/inputManager';
 
 interface ModeBarProps {
   onModeChange?: (mode: EntityType | 'all') => void;
@@ -71,8 +73,6 @@ export function ModeBar({ onModeChange }: ModeBarProps) {
   
   const [menuOpen, setMenuOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
-  const tabPressTime = useRef<number | null>(null);
-  const holdTimeout = useRef<NodeJS.Timeout | null>(null);
   const mousePressTime = useRef<number | null>(null);
   const mouseHoldTimeout = useRef<NodeJS.Timeout | null>(null);
   
@@ -143,107 +143,62 @@ export function ModeBar({ onModeChange }: ModeBarProps) {
     mousePressTime.current = null;
   }, []);
   
-  // Tab key handling: single click to cycle, long hold for menu
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Skip if in input field
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        return;
-      }
-      
-      if (e.key === 'Tab' && !e.shiftKey && !e.ctrlKey && !e.altKey) {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        // Ignore key repeat events (when holding Tab)
-        if (e.repeat) return;
-        
-        // Start tracking hold time (only on initial press)
-        if (tabPressTime.current === null) {
-          tabPressTime.current = Date.now();
-          
-          // Set timeout for long hold
-          holdTimeout.current = setTimeout(() => {
-            const current = useRadarStore.getState().gameState.activeMode;
-            setHighlightedIndex(modes.indexOf(current));
-            setMenuOpen(true);
-          }, HOLD_THRESHOLD);
-        }
-      }
-      
-      // Arrow keys for menu navigation - absorb events so map doesn't receive them
-      if (menuOpen) {
-        if (e.key === 'ArrowUp' || e.key === 'ArrowLeft' || e.key === 'w' || e.key === 'W' || e.key === 'a' || e.key === 'A') {
-          e.preventDefault();
-          e.stopPropagation();
-          setHighlightedIndex((prev) => (prev - 1 + modes.length) % modes.length);
-        } else if (e.key === 'ArrowDown' || e.key === 'ArrowRight' || e.key === 's' || e.key === 'S' || e.key === 'd' || e.key === 'D') {
-          e.preventDefault();
-          e.stopPropagation();
-          setHighlightedIndex((prev) => (prev + 1) % modes.length);
-        } else if (e.key === 'Enter') {
-          e.preventDefault();
-          e.stopPropagation();
-          const selectedMode = modes[highlightedIndex];
-          selectMode(selectedMode);
-          setMenuOpen(false);
-        } else if (e.key === 'Escape') {
-          e.preventDefault();
-          e.stopPropagation();
-          setMenuOpen(false);
-        }
-      }
-    };
-    
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'Tab') {
-        // Only handle if we were tracking a Tab press
-        if (tabPressTime.current === null && !menuOpen) return;
-        
-        e.preventDefault();
-        e.stopPropagation();
-        
-        // Clear hold timeout
-        if (holdTimeout.current) {
-          clearTimeout(holdTimeout.current);
-          holdTimeout.current = null;
-        }
-        
-        // If menu is open, confirm selection on release
+  // Handle input actions from centralized input manager
+  const handleUIAction = useCallback((action: InputAction) => {
+    switch (action) {
+      case 'filter_cycle':
+        // Cycle to next mode
+        const current = useRadarStore.getState().gameState.activeMode;
+        const currentIdx = modes.indexOf(current);
+        const nextIdx = (currentIdx + 1) % modes.length;
+        selectMode(modes[nextIdx]);
+        break;
+      case 'filter_menu_open':
+        const currentMode = useRadarStore.getState().gameState.activeMode;
+        setHighlightedIndex(modes.indexOf(currentMode));
+        setMenuOpen(true);
+        break;
+      case 'filter_menu_close':
         if (menuOpen) {
           const selectedMode = modes[highlightedIndex];
           selectMode(selectedMode);
           setMenuOpen(false);
-          tabPressTime.current = null;
-          return;
         }
-        
-        // Check if it was a quick tap (not a hold)
-        if (tabPressTime.current !== null) {
-          const holdDuration = Date.now() - tabPressTime.current;
-          tabPressTime.current = null;
-          
-          if (holdDuration < HOLD_THRESHOLD) {
-            // Quick tap - cycle to next mode
-            const current = useRadarStore.getState().gameState.activeMode;
-            const currentIdx = modes.indexOf(current);
-            const nextIdx = (currentIdx + 1) % modes.length;
-            selectMode(modes[nextIdx]);
-          }
-        }
+        break;
+    }
+  }, [modes, selectMode, menuOpen, highlightedIndex]);
+  
+  useUIInput(handleUIAction);
+  
+  // Arrow key navigation when menu is open (still needs local handling for menu-specific navigation)
+  useEffect(() => {
+    if (!menuOpen) return;
+    
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowUp' || e.key === 'ArrowLeft' || e.key === 'w' || e.key === 'W' || e.key === 'a' || e.key === 'A') {
+        e.preventDefault();
+        e.stopPropagation();
+        setHighlightedIndex((prev) => (prev - 1 + modes.length) % modes.length);
+      } else if (e.key === 'ArrowDown' || e.key === 'ArrowRight' || e.key === 's' || e.key === 'S' || e.key === 'd' || e.key === 'D') {
+        e.preventDefault();
+        e.stopPropagation();
+        setHighlightedIndex((prev) => (prev + 1) % modes.length);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation();
+        const selectedMode = modes[highlightedIndex];
+        selectMode(selectedMode);
+        setMenuOpen(false);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        setMenuOpen(false);
       }
     };
     
     window.addEventListener('keydown', handleKeyDown, true);
-    window.addEventListener('keyup', handleKeyUp, true);
-    
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown, true);
-      window.removeEventListener('keyup', handleKeyUp, true);
-      if (holdTimeout.current) clearTimeout(holdTimeout.current);
-      if (mouseHoldTimeout.current) clearTimeout(mouseHoldTimeout.current);
-    };
-  }, [modes, menuOpen, highlightedIndex, selectMode]);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [menuOpen, modes, highlightedIndex, selectMode]);
   
   // Click outside to close menu
   useEffect(() => {

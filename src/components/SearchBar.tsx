@@ -5,6 +5,8 @@ import { useRadarStore, Aircraft, Airport } from '@/store/gameStore';
 import { EntityType } from '@/types/entities';
 import { getEntityConfig } from '@/lib/entityRegistry';
 import { UI } from '@/config/constants';
+import { useUIInput } from '@/hooks/useInputManager';
+import { InputAction } from '@/lib/inputManager';
 
 interface ParsedSearch {
   entityType: 'all' | EntityType;
@@ -219,17 +221,21 @@ export function SearchBar() {
     return () => document.removeEventListener('click', onClick);
   }, []);
   
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      if (e.key === ' ' || e.code === 'Space') {
-        e.preventDefault();
+  // Handle input actions from centralized input manager
+  const handleUIAction = useCallback((action: InputAction) => {
+    switch (action) {
+      case 'search_focus':
         inputRef.current?.focus();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+        break;
+      case 'search_blur':
+        inputRef.current?.blur();
+        setShowResults(false);
+        setQuery('');
+        break;
+    }
   }, []);
+  
+  useUIInput(handleUIAction);
   
   useEffect(() => {
     if (results.length > 0 && showResults) {

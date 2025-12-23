@@ -6,6 +6,7 @@ import { DataPoller } from '@/components/DataPoller';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useRadarStore } from '@/store/gameStore';
 import { useState, useEffect } from 'react';
+import { useInputManagerInit } from '@/hooks/useInputManager';
 
 const Scene = dynamic(() => import('@/components/Scene').then((mod) => mod.Scene), {
   ssr: false,
@@ -149,6 +150,9 @@ function LoadingOverlay() {
 }
 
 export default function Home() {
+  // Initialize global input manager
+  useInputManagerInit();
+  
   return (
     <ErrorBoundary>
       <main className="w-full h-screen overflow-hidden bg-black">

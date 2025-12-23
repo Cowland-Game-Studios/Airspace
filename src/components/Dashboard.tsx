@@ -5,6 +5,8 @@ import { useEffect, useCallback, useState } from 'react';
 import { EntityInfoPanel } from './entities/EntityInfoPanel';
 import { SearchBar } from './SearchBar';
 import { ModeBar } from './ModeBar';
+import { useGlobalInput } from '@/hooks/useInputManager';
+import { InputAction } from '@/lib/inputManager';
 
 export function Dashboard() {
   const gameState = useRadarStore((state) => state.gameState);
@@ -29,24 +31,21 @@ export function Dashboard() {
     selectEntity(null);
   }, [selectEntity]);
 
-  // Keyboard shortcuts (Escape to close, Enter to select hovered)
-  // Arrow keys are handled by CameraController for freecam
-  // Shift + Arrow keys are handled by CameraController for entity snapping
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        return;
-      }
-      
-      if (e.key === 'Escape') {
+  // Handle input actions from centralized input manager
+  const handleGlobalAction = useCallback((action: InputAction) => {
+    switch (action) {
+      case 'deselect':
         handleClosePanel();
-      } else if (e.key === 'Enter' && gameState.hoveredEntity) {
-        selectEntity(gameState.hoveredEntity);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+        break;
+      case 'select_hovered':
+        if (gameState.hoveredEntity) {
+          selectEntity(gameState.hoveredEntity);
+        }
+        break;
+    }
   }, [handleClosePanel, gameState.hoveredEntity, selectEntity]);
+  
+  useGlobalInput(handleGlobalAction);
 
   return (
     <div className="absolute inset-0 pointer-events-none font-mono">

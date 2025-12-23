@@ -1,11 +1,13 @@
 'use client';
 
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { useRadarStore } from '@/store/gameStore';
 import { CAMERA, LOCATIONS, GLOBE, INPUT, AIRPORTS } from '@/config/constants';
+import { useCanvasInput, useInputState } from '@/hooks/useInputManager';
+import { InputAction } from '@/lib/inputManager';
 
 function latLonToVector3(lat: number, lon: number, alt: number = 0): THREE.Vector3 {
   const r = 1 + alt * GLOBE.ALTITUDE_SCALE;
@@ -74,11 +76,7 @@ export function CameraController() {
   const savedCameraPosition = useRef(new THREE.Vector3());
   const savedCameraTarget = useRef(new THREE.Vector3());
   
-  // Shift key tracking (for chase view to know when to pause following)
-  const isShiftHeld = useRef(false);
-  
-  // Arrow key tracking for freecam
-  const arrowKeysHeld = useRef({ up: false, down: false, left: false, right: false });
+  // Track if we were moving with arrows (for clearing hover on movement)
   const wasMovingWithArrows = useRef(false);
   
   // Snap mode toggle (Shift to toggle, arrows to navigate when on)
@@ -320,165 +318,57 @@ export function CameraController() {
     prevSnapMode.current = snapMode;
   }, [snapMode, hoverEntity]);
   
-  // Track if shift was used with other keys (so we don't toggle snap mode)
-  const shiftUsedWithOtherKeys = useRef(false);
-  // Track zoom held state for Shift+Up/Down
-  const zoomHeld = useRef({ in: false, out: false });
-  // Track tilt held state for Q/E when freecaming
-  const tiltHeld = useRef({ up: false, down: false });
+  // Get input state from centralized input manager
+  const getInputState = useInputState();
   
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Skip if in input field
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        return;
-      }
-      
-      // Skip if another component already handled this (e.g. mode menu)
-      if (e.defaultPrevented) return;
-      
-      if (e.key === 'Shift' && !e.repeat) {
-        isShiftHeld.current = true;
-        shiftUsedWithOtherKeys.current = false; // Reset on fresh shift press
-      }
-      
-      // Escape: clear hover state and exit snap mode
-      if (e.key === 'Escape') {
-        hoverEntity(null);
-        if (snapMode) {
-          toggleSnapMode(); // This will turn off snap mode and show toast
+  // Handle canvas input actions from centralized input manager
+  const handleCanvasAction = useCallback((action: InputAction) => {
+    const currentSelectedEntity = useRadarStore.getState().gameState.selectedEntity;
+    const currentSnapMode = useRadarStore.getState().gameState.snapMode;
+    
+    switch (action) {
+      case 'view_prev':
+        if (currentSelectedEntity?.type === 'aircraft') {
+          cycleViewMode('prev');
         }
-        return;
-      }
-      
-      // Q/E: Cycle view modes when aircraft is selected, or tilt camera when freecaming
-      if (e.key === 'q' || e.key === 'Q') {
-        const selectedEntity = useRadarStore.getState().gameState.selectedEntity;
-        if (selectedEntity?.type === 'aircraft') {
-          if (!e.repeat) {
-            e.preventDefault();
-            cycleViewMode('prev');
-          }
-          return;
-        } else {
-          // Freecam: tilt camera up (more earth-oriented / look down at earth)
-          e.preventDefault();
-          tiltHeld.current.up = true;
-          return;
+        break;
+      case 'view_next':
+        if (currentSelectedEntity?.type === 'aircraft') {
+          cycleViewMode('next');
         }
-      }
-      if (e.key === 'e' || e.key === 'E') {
-        const selectedEntity = useRadarStore.getState().gameState.selectedEntity;
-        if (selectedEntity?.type === 'aircraft') {
-          if (!e.repeat) {
-            e.preventDefault();
-            cycleViewMode('next');
-          }
-          return;
-        } else {
-          // Freecam: tilt camera down (less earth-oriented / look towards horizon)
-          e.preventDefault();
-          tiltHeld.current.down = true;
-          return;
-        }
-      }
-      
-      // Shift+W/S or Shift+Up/Down: Zoom in/out
-      if (e.shiftKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'w' || e.key === 'W' || e.key === 's' || e.key === 'S')) {
-        e.preventDefault();
-        shiftUsedWithOtherKeys.current = true; // Mark shift as used with other keys
-        if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') zoomHeld.current.in = true;
-        if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') zoomHeld.current.out = true;
-        return;
-      }
-      
-      // Helper function for movement key handling
-      const handleMovementKey = (direction: 'up' | 'down' | 'left' | 'right') => {
-        const currentSnapMode = useRadarStore.getState().gameState.snapMode;
-        
-        if (currentSnapMode && !e.repeat) {
-          // Snap mode: navigate to entities
-          e.preventDefault();
+        break;
+      case 'snap_up':
+      case 'snap_down':
+      case 'snap_left':
+      case 'snap_right':
+        if (currentSnapMode) {
+          const direction = action.replace('snap_', '') as 'up' | 'down' | 'left' | 'right';
           const entity = findEntityInDirection(direction);
           if (entity) {
             setFocusLocation({ lat: entity.lat, lon: entity.lon });
             hoverEntity({ type: entity.type, id: entity.id });
           }
-          return true;
-        } else if (!currentSnapMode) {
-          // Freecam mode: pan - clear any hover state when starting to move
+        } else {
+          // Clear hover when starting freecam movement
           if (!wasMovingWithArrows.current) {
-            hoverEntity(null); // Clear hover when camera starts moving
+            hoverEntity(null);
           }
-          arrowKeysHeld.current[direction] = true;
           wasMovingWithArrows.current = true;
-          return true;
         }
-        return false;
-      };
-      
-      // WASD keys (primary) - same behavior as arrow keys
-      if (e.key === 'w' || e.key === 'W') { handleMovementKey('up'); return; }
-      if (e.key === 's' || e.key === 'S') { handleMovementKey('down'); return; }
-      if (e.key === 'a' || e.key === 'A') { handleMovementKey('left'); return; }
-      if (e.key === 'd' || e.key === 'D') { handleMovementKey('right'); return; }
-      
-      // Arrow keys (secondary) - same behavior as WASD
-      if (e.key === 'ArrowUp') { handleMovementKey('up'); return; }
-      if (e.key === 'ArrowDown') { handleMovementKey('down'); return; }
-      if (e.key === 'ArrowLeft') { handleMovementKey('left'); return; }
-      if (e.key === 'ArrowRight') { handleMovementKey('right'); return; }
-    };
-    
-    const handleKeyUp = (e: KeyboardEvent) => {
-      // Skip if in input field
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        return;
-      }
-      
-      // Skip if another component already handled this (e.g. mode menu)
-      if (e.defaultPrevented) return;
-      
-      // Release zoom keys
-      if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') zoomHeld.current.in = false;
-      if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') zoomHeld.current.out = false;
-      
-      // Release tilt keys
-      if (e.key === 'q' || e.key === 'Q') tiltHeld.current.up = false;
-      if (e.key === 'e' || e.key === 'E') tiltHeld.current.down = false;
-      
-      // Shift release: toggle snap mode ONLY if shift wasn't used with other keys
-      if (e.key === 'Shift') {
-        if (!shiftUsedWithOtherKeys.current && !e.ctrlKey && !e.altKey) {
+        break;
+      case 'deselect':
+        hoverEntity(null);
+        if (currentSnapMode) {
           toggleSnapMode();
         }
-        isShiftHeld.current = false;
-        shiftUsedWithOtherKeys.current = false;
-      }
-      
-      // Release movement keys (both WASD and arrow keys)
-      if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') arrowKeysHeld.current.up = false;
-      if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') arrowKeysHeld.current.down = false;
-      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') arrowKeysHeld.current.left = false;
-      if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') arrowKeysHeld.current.right = false;
-      
-      // Reset movement tracking when all released
-      const arrows = arrowKeysHeld.current;
-      const noArrowsHeld = !arrows.up && !arrows.down && !arrows.left && !arrows.right;
-      
-      if (noArrowsHeld && wasMovingWithArrows.current) {
-        wasMovingWithArrows.current = false;
-      }
-    };
-    
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-    
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-    };
-  }, []);
+        break;
+      case 'snap_toggle':
+        toggleSnapMode();
+        break;
+    }
+  }, [cycleViewMode, findEntityInDirection, setFocusLocation, hoverEntity, toggleSnapMode]);
+  
+  useCanvasInput(handleCanvasAction);
   
   // Get user's location on mount
   useEffect(() => {
@@ -810,19 +700,19 @@ export function CameraController() {
     const zoomBasedRotateSpeed = Math.max(CAMERA.ROTATE_SPEED_MIN, Math.min(CAMERA.ROTATE_SPEED_MAX, (cameraDistance - 1) * INPUT.KEYBOARD.ROTATE_ZOOM_SCALE));
     controlsRef.current.rotateSpeed = zoomBasedRotateSpeed;
     
-    // Shift+Up/Down for keyboard zoom
-    const zoomIn = zoomHeld.current.in;
-    const zoomOut = zoomHeld.current.out;
+    // Get input state from centralized input manager
+    const inputState = getInputState();
     
-    if (zoomIn || zoomOut) {
+    // Shift+Up/Down for keyboard zoom
+    if (inputState.zoomIn || inputState.zoomOut) {
       const zoomSpeed = CAMERA.ZOOM_SPEED_KEYBOARD * delta;
       const currentDist = camera.position.length();
       
-      if (zoomIn && currentDist > CAMERA.MIN_DISTANCE) {
+      if (inputState.zoomIn && currentDist > CAMERA.MIN_DISTANCE) {
         // Zoom in: move closer
         const newDist = Math.max(CAMERA.MIN_DISTANCE, currentDist - zoomSpeed);
         camera.position.normalize().multiplyScalar(newDist);
-      } else if (zoomOut && currentDist < CAMERA.MAX_DISTANCE) {
+      } else if (inputState.zoomOut && currentDist < CAMERA.MAX_DISTANCE) {
         // Zoom out: move farther
         const newDist = Math.min(CAMERA.MAX_DISTANCE, currentDist + zoomSpeed);
         camera.position.normalize().multiplyScalar(newDist);
@@ -832,10 +722,7 @@ export function CameraController() {
     // Q/E for camera yaw - adjust viewing angle relative to earth
     // Q = flatter view (look along earth's surface, towards horizon)
     // E = steeper view (look more towards earth's center, top-down)
-    const tiltUp = tiltHeld.current.up;   // Q - flatten view
-    const tiltDown = tiltHeld.current.down; // E - steepen view
-    
-    if ((tiltUp || tiltDown) && !selectedEntity && controlsRef.current) {
+    if ((inputState.yawFlatten || inputState.yawSteepen) && !selectedEntity && controlsRef.current) {
       const yawSpeed = 0.4 * delta; // How fast to adjust the view angle
       
       // Get the point on the globe directly below the camera (nadir)
@@ -847,7 +734,7 @@ export function CameraController() {
       // Calculate how far the target is from center (0 = center, 1 = on globe surface)
       const targetDistance = currentTarget.length();
       
-      if (tiltUp) {
+      if (inputState.yawFlatten) {
         // Q: Move target towards the globe surface in camera's view direction
         // This creates a flatter, more horizon-like view
         const maxTargetDist = 0.85; // Max distance from center (closer to surface = flatter view)
@@ -856,7 +743,7 @@ export function CameraController() {
         // Target should be on the globe surface in front of camera
         const targetOnSurface = cameraPosNorm.clone().multiplyScalar(newDist);
         controlsRef.current.target.lerp(targetOnSurface, 0.15);
-      } else if (tiltDown) {
+      } else if (inputState.yawSteepen) {
         // E: Move target back towards center (0,0,0)
         // This creates a more top-down view
         const newDist = Math.max(0, targetDistance - yawSpeed);
@@ -870,11 +757,10 @@ export function CameraController() {
       }
     }
     
-    // Arrow keys for freecam movement (default behavior) - just moves camera, no entity interaction
-    const arrows = arrowKeysHeld.current;
-    const anyArrowHeld = arrows.up || arrows.down || arrows.left || arrows.right;
+    // Arrow/WASD keys for freecam movement (only when not in snap mode)
+    const anyMovementHeld = inputState.moveUp || inputState.moveDown || inputState.moveLeft || inputState.moveRight;
     
-    if (!isShiftHeld.current && anyArrowHeld) {
+    if (!inputState.shiftHeld && anyMovementHeld && !snapMode) {
       const panSpeed = CAMERA.PAN_SPEED * delta;
       
       // Get camera's right and up vectors for screen-space movement
@@ -883,10 +769,10 @@ export function CameraController() {
       
       // Calculate movement direction
       const movement = new THREE.Vector3();
-      if (arrows.right) movement.add(cameraRight.clone().multiplyScalar(panSpeed));
-      if (arrows.left) movement.add(cameraRight.clone().multiplyScalar(-panSpeed));
-      if (arrows.up) movement.add(cameraUp.clone().multiplyScalar(panSpeed));
-      if (arrows.down) movement.add(cameraUp.clone().multiplyScalar(-panSpeed));
+      if (inputState.moveRight) movement.add(cameraRight.clone().multiplyScalar(panSpeed));
+      if (inputState.moveLeft) movement.add(cameraRight.clone().multiplyScalar(-panSpeed));
+      if (inputState.moveUp) movement.add(cameraUp.clone().multiplyScalar(panSpeed));
+      if (inputState.moveDown) movement.add(cameraUp.clone().multiplyScalar(-panSpeed));
       
       // Apply movement to camera position
       camera.position.add(movement);
