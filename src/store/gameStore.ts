@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { EntityRef } from '@/types/entities';
+import { UI } from '@/config/constants';
 
 // ============================================================================
 // DATA INTERFACES
@@ -276,17 +277,17 @@ export const useRadarStore = create<Store>((set, get) => ({
     
     set((s) => ({ toasts: [...s.toasts, newToast] }));
     
-    // Start exit animation after 1.2 seconds
+    // Start exit animation after display duration
     setTimeout(() => {
       set((s) => ({
         toasts: s.toasts.map(t => t.id === id ? { ...t, exiting: true } : t)
       }));
-    }, 1200);
+    }, UI.TOAST.DISPLAY_DURATION);
     
-    // Remove from DOM after exit animation (300ms)
+    // Remove from DOM after exit animation completes
     setTimeout(() => {
       set((s) => ({ toasts: s.toasts.filter(t => t.id !== id) }));
-    }, 1500);
+    }, UI.TOAST.DISPLAY_DURATION + UI.TOAST.EXIT_ANIM_DURATION);
   },
   
   dismissToast: (id) => {

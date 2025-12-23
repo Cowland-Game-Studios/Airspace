@@ -5,15 +5,13 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useRadarStore } from '@/store/gameStore';
 import { latLonToVector3 } from '@/utils/geo';
+import { GLOBE, BORDERS, COLORS } from '@/config/constants';
 
 // ============================================================================
 // COUNTRY BORDERS COMPONENT
 // Draws animated country borders on the globe
 // Fixed: Uses bundled GeoJSON, proper disposal
 // ============================================================================
-
-const EARTH_RADIUS = 1.002;
-const DRAW_DURATION = 1.5; // seconds to fully draw borders
 
 interface GeoJSONFeature {
   type: string;
@@ -57,8 +55,8 @@ export function CountryBorders() {
             const [lon1, lat1] = ring[i];
             const [lon2, lat2] = ring[i + 1];
             
-            const p1 = latLonToVector3(lat1, lon1, 0, EARTH_RADIUS);
-            const p2 = latLonToVector3(lat2, lon2, 0, EARTH_RADIUS);
+            const p1 = latLonToVector3(lat1, lon1, 0, GLOBE.BORDER_SURFACE_OFFSET);
+            const p2 = latLonToVector3(lat2, lon2, 0, GLOBE.BORDER_SURFACE_OFFSET);
             
             allPoints.push(p1.x, p1.y, p1.z);
             allPoints.push(p2.x, p2.y, p2.z);
@@ -99,7 +97,7 @@ export function CountryBorders() {
     
     // Create material
     const material = new THREE.LineBasicMaterial({
-      color: '#ffffff',
+      color: COLORS.BORDERS_LINE,
       transparent: true,
       opacity: 0,
     });
@@ -133,7 +131,7 @@ export function CountryBorders() {
     
     // Animate progress
     if (animationProgress.current < 1) {
-      animationProgress.current = Math.min(1, animationProgress.current + delta / DRAW_DURATION);
+      animationProgress.current = Math.min(1, animationProgress.current + delta / BORDERS.DRAW_DURATION);
       
       // Ease out cubic for smooth draw
       const eased = 1 - Math.pow(1 - animationProgress.current, 3);
@@ -142,7 +140,7 @@ export function CountryBorders() {
       
       // Also fade in opacity
       if (materialRef.current) {
-        materialRef.current.opacity = eased * 0.6;
+        materialRef.current.opacity = eased * BORDERS.MAX_OPACITY;
       }
     }
   });

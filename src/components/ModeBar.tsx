@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { EntityType } from '@/types/entities';
 import { useRadarStore } from '@/store/gameStore';
-import { UI } from '@/config/constants';
+import { UI, COLORS } from '@/config/constants';
+import { TEXT, BG, BORDER } from '@/config/styles';
 import { useUIInput } from '@/hooks/useInputManager';
 import { InputAction } from '@/lib/inputManager';
 
@@ -11,12 +12,12 @@ interface ModeBarProps {
   onModeChange?: (mode: EntityType | 'all') => void;
 }
 
-// Mode colors - highlighted uses lighter shade
+// Mode colors - from centralized config
 const MODE_COLORS = {
-  all: { active: '#66aaff', inactive: '#335577', highlighted: '#88ccff' },      // Blue
-  aircraft: { active: '#00ff88', inactive: '#005533', highlighted: '#66ffaa' }, // Green
-  airport: { active: '#ffffff', inactive: '#555555', highlighted: '#cccccc' },  // White
-  missile: { active: '#ff4444', inactive: '#552222', highlighted: '#ff6666' },  // Red
+  all: COLORS.MODE_ALL,
+  aircraft: COLORS.MODE_AIRCRAFT,
+  airport: COLORS.MODE_AIRPORT,
+  missile: COLORS.MODE_MISSILE,
 };
 
 // SVG Icons with mode-specific colors
@@ -244,29 +245,29 @@ export function ModeBar({ onModeChange }: ModeBarProps) {
   };
   
   return (
-    <div className="mode-bar-container relative flex items-center gap-1 text-[10px]">
+    <div className={`mode-bar-container relative flex items-center gap-1 ${TEXT.BASE}`}>
       {/* Menu popup - animates up from bottom */}
       <div 
-        className={`absolute bottom-full left-0 mb-2 bg-black/95 border border-[#333] overflow-hidden transition-all duration-200 ease-out ${
+        className={`absolute bottom-full left-0 mb-2 ${BG.PANEL_BLUR} ${BORDER.PANEL} overflow-hidden transition-all duration-200 ease-out ${
           menuOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none'
         }`}
         style={{ minWidth: '140px' }}
       >
-        <div className="px-2 py-1 border-b border-[#333] text-[#666]">
-          SELECT MODE <span className="text-[#444]">↑↓</span>
+        <div className={`px-2 py-1 ${BORDER.DIVIDER_B} ${TEXT.SECONDARY}`}>
+          SELECT MODE <span className={TEXT.DIMMED}>↑↓</span>
         </div>
         {modes.map((mode, idx) => {
           const isActive = activeMode === mode;
           const isHighlighted = highlightedIndex === idx;
           const count = counts[mode] || 0;
           const colors = MODE_COLORS[mode];
-          const textColor = isHighlighted ? colors.highlighted : isActive ? colors.active : '#888';
+          const textColor = isHighlighted ? colors.highlighted : isActive ? colors.active : COLORS.TEXT_SECONDARY;
           
           return (
             <div
               key={mode}
               className={`flex items-center gap-2 px-3 py-1.5 cursor-pointer transition-all duration-100 ${
-                isHighlighted ? 'bg-[#222] border-l-2' : 'border-l-2 border-transparent'
+                isHighlighted ? `${BG.HOVER} border-l-2` : 'border-l-2 border-transparent'
               }`}
               style={{ borderLeftColor: isHighlighted ? colors.highlighted : 'transparent' }}
               onClick={() => {
@@ -277,11 +278,11 @@ export function ModeBar({ onModeChange }: ModeBarProps) {
             >
               {getIcon(mode, isActive, isHighlighted)}
               <span style={{ color: textColor }}>{getLabel(mode)}</span>
-              <span className="ml-auto" style={{ color: isHighlighted ? colors.highlighted : '#666' }}>{count}</span>
+              <span className="ml-auto" style={{ color: isHighlighted ? colors.highlighted : COLORS.TEXT_SECONDARY }}>{count}</span>
             </div>
           );
         })}
-        <div className="px-2 py-1 border-t border-[#333] text-[#444] text-center">
+        <div className={`px-2 py-1 ${BORDER.DIVIDER} ${TEXT.DIMMED} text-center`}>
           click to select
         </div>
       </div>
@@ -289,8 +290,8 @@ export function ModeBar({ onModeChange }: ModeBarProps) {
       {/* Current mode indicator */}
       <div 
         ref={containerRef}
-        className={`relative flex items-center gap-1 bg-black/30 backdrop-blur-md border h-full px-2 py-2 transition-all duration-200 cursor-pointer select-none ${
-          menuOpen ? 'border-[#66aaff]/50' : 'border-[#333]'
+        className={`relative flex items-center gap-1 ${BG.GLASS_BLUR} border h-full px-2 py-2 transition-all duration-200 cursor-pointer select-none ${
+          menuOpen ? BORDER.ACCENT_BLUE : BORDER.DEFAULT
         }`}
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
@@ -298,7 +299,7 @@ export function ModeBar({ onModeChange }: ModeBarProps) {
       >
         {/* Animated highlight background */}
         <div 
-          className="absolute top-1 bottom-1 bg-[#111] rounded-sm transition-all duration-300 ease-out pointer-events-none"
+          className={`absolute top-1 bottom-1 ${BG.ELEVATED} rounded-sm transition-all duration-300 ease-out pointer-events-none`}
           style={{
             left: highlightStyle.left,
             width: highlightStyle.width,
@@ -307,7 +308,7 @@ export function ModeBar({ onModeChange }: ModeBarProps) {
         />
         
         {/* Tab hint inside the box */}
-        <span className="text-[#444] text-[10px] mr-1 relative z-10">[TAB]</span>
+        <span className={`${TEXT.DIMMED} ${TEXT.BASE} mr-1 relative z-10`}>[TAB]</span>
         
         {modes.map((mode, index) => {
           const isActive = activeMode === mode;

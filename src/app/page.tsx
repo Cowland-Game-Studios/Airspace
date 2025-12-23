@@ -7,32 +7,13 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useRadarStore } from '@/store/gameStore';
 import { useState, useEffect } from 'react';
 import { useInputManagerInit } from '@/hooks/useInputManager';
+import { INTRO } from '@/config/constants';
+import { TEXT } from '@/config/styles';
 
 const Scene = dynamic(() => import('@/components/Scene').then((mod) => mod.Scene), {
   ssr: false,
-  loading: () => null, // We handle loading ourselves
+  loading: () => null,
 });
-
-const LOADING_STAGES = [
-  { text: 'ESTABLISHING_SECURE_CONNECTION', duration: 400 },
-  { text: 'AUTHENTICATING_CLEARANCE_LEVEL', duration: 350 },
-  { text: 'LOADING_SATELLITE_IMAGERY', duration: 500 },
-  { text: 'CALIBRATING_RADAR_SYSTEMS', duration: 450 },
-  { text: 'SYNCHRONIZING_FLIGHT_DATA', duration: 400 },
-  { text: 'ACQUIRING_GPS_COORDINATES', duration: 600 },
-  { text: 'INITIALIZING_TRACKING_MATRIX', duration: 350 },
-  { text: 'SYSTEM_READY', duration: 300 },
-];
-
-// Intro animation timing (ms)
-const INTRO_TIMING = {
-  BORDERS_DELAY: 200,      // Start borders after loading fade begins
-  BORDERS_DURATION: 1500,  // How long borders take to draw (slower)
-  AIRPORTS_DELAY: 300,     // Start airports shortly after borders (overlap)
-  AIRPORTS_DURATION: 1200, // How long airports stagger in (left to right)
-  AIRCRAFT_DELAY: 800,     // Start aircraft after airports begin
-  AIRCRAFT_DURATION: 1200, // How long aircraft stagger in
-};
 
 function LoadingOverlay() {
   const locationReady = useRadarStore((s) => s.locationReady);
@@ -47,22 +28,22 @@ function LoadingOverlay() {
     // Start borders animation
     const bordersTimer = setTimeout(() => {
       setIntroPhase('borders');
-    }, INTRO_TIMING.BORDERS_DELAY);
+    }, INTRO.BORDERS_DELAY);
     
     // Start airports animation
     const airportsTimer = setTimeout(() => {
       setIntroPhase('airports');
-    }, INTRO_TIMING.BORDERS_DELAY + INTRO_TIMING.AIRPORTS_DELAY);
+    }, INTRO.BORDERS_DELAY + INTRO.AIRPORTS_DELAY);
     
     // Start aircraft animation
     const aircraftTimer = setTimeout(() => {
       setIntroPhase('aircraft');
-    }, INTRO_TIMING.BORDERS_DELAY + INTRO_TIMING.AIRPORTS_DELAY + INTRO_TIMING.AIRCRAFT_DELAY);
+    }, INTRO.BORDERS_DELAY + INTRO.AIRPORTS_DELAY + INTRO.AIRCRAFT_DELAY);
     
     // Complete animation
     const completeTimer = setTimeout(() => {
       setIntroPhase('complete');
-    }, INTRO_TIMING.BORDERS_DELAY + INTRO_TIMING.AIRPORTS_DELAY + INTRO_TIMING.AIRCRAFT_DELAY + INTRO_TIMING.AIRCRAFT_DURATION);
+    }, INTRO.BORDERS_DELAY + INTRO.AIRPORTS_DELAY + INTRO.AIRCRAFT_DELAY + INTRO.AIRCRAFT_DURATION);
     
     return () => {
       clearTimeout(bordersTimer);
@@ -76,11 +57,11 @@ function LoadingOverlay() {
   useEffect(() => {
     if (locationReady) return;
     
-    const stage = LOADING_STAGES[stageIndex];
+    const stage = INTRO.STAGES[stageIndex];
     if (!stage) return;
     
     const timer = setTimeout(() => {
-      if (stageIndex < LOADING_STAGES.length - 1) {
+      if (stageIndex < INTRO.STAGES.length - 1) {
         setStageIndex(prev => prev + 1);
       }
     }, stage.duration);
@@ -94,32 +75,33 @@ function LoadingOverlay() {
     
     const interval = setInterval(() => {
       setProgress(prev => {
-        // Progress based on stage index with some randomness
-        const targetProgress = ((stageIndex + 1) / LOADING_STAGES.length) * 100;
-        const jitter = Math.random() * 3 - 1;
-        const newProgress = prev + (targetProgress - prev) * 0.15 + jitter;
+        const targetProgress = ((stageIndex + 1) / INTRO.STAGES.length) * 100;
+        const jitter = Math.random() * INTRO.PROGRESS_JITTER - 1;
+        const newProgress = prev + (targetProgress - prev) * INTRO.PROGRESS_SMOOTH_FACTOR + jitter;
         return Math.min(Math.max(newProgress, prev), 99);
       });
-    }, 50);
+    }, INTRO.PROGRESS_INTERVAL);
     
     return () => clearInterval(interval);
   }, [stageIndex, locationReady]);
   
-  // Set progress to 100 when location is ready (computed value, not in effect)
   const displayProgress = locationReady ? 100 : progress;
   
-  const currentStage = LOADING_STAGES[stageIndex] || LOADING_STAGES[LOADING_STAGES.length - 1];
+  const currentStage = INTRO.STAGES[stageIndex] || INTRO.STAGES[INTRO.STAGES.length - 1];
   
   return (
     <div 
-      className={`fixed inset-0 z-50 bg-black flex items-center justify-center font-mono transition-opacity duration-700 pointer-events-none ${
+      className={`fixed inset-0 z-50 bg-black flex items-center justify-center font-mono transition-opacity pointer-events-none ${
         locationReady ? 'opacity-0' : 'opacity-100'
       }`}
-      style={{ transitionDelay: locationReady ? '200ms' : '0ms' }}
+      style={{ 
+        transitionDuration: `${INTRO.FADE_DURATION}ms`,
+        transitionDelay: locationReady ? `${INTRO.FADE_DELAY}ms` : '0ms' 
+      }}
     >
       <div className="relative" style={{ width: '320px', height: '70px' }}>
         {/* Commercial edition label - top */}
-        <div className="absolute top-0 left-0 right-0 text-center text-[10px] text-[#555] tracking-[0.15em]">
+        <div className={`absolute top-0 left-0 right-0 text-center ${TEXT.BASE} ${TEXT.MUTED} tracking-[0.15em]`}>
           COMMERCIAL EDITION
         </div>
         
@@ -127,12 +109,12 @@ function LoadingOverlay() {
         <div className="absolute top-5 left-0 right-0 text-center">
           <div className="relative inline-block text-sm tracking-[0.25em] font-light">
             {/* Grey background text */}
-            <span className="text-[#333] whitespace-nowrap">
+            <span className={`${TEXT.DARK} whitespace-nowrap`}>
               BULLHORN AEROSYSTEMS
             </span>
             {/* White overlay that reveals left to right */}
             <div 
-              className="absolute top-0 left-0 text-white overflow-hidden whitespace-nowrap"
+              className={`absolute top-0 left-0 ${TEXT.PRIMARY} overflow-hidden whitespace-nowrap`}
               style={{ width: `${displayProgress}%` }}
             >
               BULLHORN AEROSYSTEMS
@@ -141,7 +123,7 @@ function LoadingOverlay() {
         </div>
         
         {/* Status line: stage text - percentage - absolutely positioned */}
-        <div className="absolute bottom-0 left-0 right-0 text-center text-[10px] text-[#555] tracking-[0.15em]">
+        <div className={`absolute bottom-0 left-0 right-0 text-center ${TEXT.BASE} ${TEXT.MUTED} tracking-[0.15em]`}>
           {currentStage.text} — {Math.floor(displayProgress)}%
         </div>
       </div>

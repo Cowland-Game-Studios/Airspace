@@ -4,7 +4,8 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { useRadarStore, Aircraft, Airport } from '@/store/gameStore';
 import { EntityType } from '@/types/entities';
 import { getEntityConfig } from '@/lib/entityRegistry';
-import { UI } from '@/config/constants';
+import { UI, COLORS } from '@/config/constants';
+import { TEXT, BG, BORDER } from '@/config/styles';
 import { useUIInput } from '@/hooks/useInputManager';
 import { InputAction } from '@/lib/inputManager';
 
@@ -285,22 +286,22 @@ export function SearchBar() {
     <div ref={containerRef} className="relative w-full h-full">
       {/* Results dropdown - expands upward */}
       {showResults && results.length > 0 && (
-        <div className="absolute bottom-full left-0 right-0 mb-1 bg-black/95 border border-[#1a1a1a] max-h-[300px] overflow-y-auto custom-scrollbar">
+        <div className={`absolute bottom-full left-0 right-0 mb-1 ${BG.PANEL_BLUR} ${BORDER.PANEL_SUBTLE} max-h-[300px] overflow-y-auto custom-scrollbar`}>
           {results.map((r, i) => (
             <div
               key={`${r.type}-${r.id}`}
               onClick={() => handleSelect(r)}
               onMouseEnter={() => setSelectedIndex(i)}
-              className={`px-3 py-2 cursor-pointer text-[10px] border-b border-[#0a0a0a] last:border-0 ${
-                i === selectedIndex ? 'bg-[#00ff88]/10' : 'hover:bg-[#111]'
+              className={`px-3 py-2 cursor-pointer ${TEXT.BASE} border-b border-[#0a0a0a] last:border-0 ${
+                i === selectedIndex ? 'bg-[#00ff88]/10' : `hover:${BG.ELEVATED}`
               }`}
             >
               <div className="flex items-center gap-2">
                 <span style={{ color: getEntityConfig(r.type).color }}>{getEntityConfig(r.type).icon}</span>
-                <span className="text-white">{r.displayName}</span>
-                <span className="text-[#555] font-mono">{r.id.toUpperCase()}</span>
+                <span className={TEXT.PRIMARY}>{r.displayName}</span>
+                <span className={`${TEXT.MUTED} ${TEXT.MONO}`}>{r.id.toUpperCase()}</span>
               </div>
-              <div className="text-[#444] mt-0.5 pl-5">{r.subtitle}</div>
+              <div className={`${TEXT.DIMMED} mt-0.5 pl-5`}>{r.subtitle}</div>
             </div>
           ))}
         </div>
@@ -314,12 +315,12 @@ export function SearchBar() {
         onChange={handleChange}
         onKeyDown={handleKeyDown}
         onFocus={() => query && setShowResults(true)}
-        placeholder="search [/]"
-        className="w-full h-full bg-black/30 backdrop-blur-md border border-[#333] px-3 py-2 text-[10px] text-white placeholder-[#555] focus:border-[#00ff88]/50 focus:outline-none"
+        placeholder="search [space]"
+        className={`w-full h-full ${BG.GLASS_BLUR} ${BORDER.PANEL} px-3 py-2 ${TEXT.BASE} ${TEXT.PRIMARY} placeholder-[#555] ${BORDER.FOCUS} focus:outline-none`}
       />
       
       {isSearching && (
-        <div className="absolute right-2 top-1/2 -translate-y-1/2 text-[8px] text-[#00ff88]">...</div>
+        <div className={`absolute right-2 top-1/2 -translate-y-1/2 ${TEXT.XS} ${TEXT.ACCENT}`}>...</div>
       )}
     </div>
   );

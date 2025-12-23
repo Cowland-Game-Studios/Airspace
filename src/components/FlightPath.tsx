@@ -4,7 +4,7 @@ import { useMemo, useEffect, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useRadarStore, TrackWaypoint, Aircraft } from '@/store/gameStore';
-import { GLOBE, FLIGHT_PATH } from '@/config/constants';
+import { GLOBE, FLIGHT_PATH, COLORS } from '@/config/constants';
 import { latLonToVector3, interpolateOnGlobe } from '@/utils/geo';
 
 // ============================================================================
@@ -12,11 +12,6 @@ import { latLonToVector3, interpolateOnGlobe } from '@/utils/geo';
 // Shows traveled path (solid) and predicted path (dashed)
 // Fixed: Proper THREE.js disposal, no allocations in render loop
 // ============================================================================
-
-// Animation timing constants
-const TOTAL_ANIMATION_TIME = FLIGHT_PATH.ANIMATION_DURATION;
-const TRAVELED_RATIO = FLIGHT_PATH.TRAVELED_RATIO;
-const PREDICTED_RATIO = FLIGHT_PATH.PREDICTED_RATIO;
 
 // Combined flight path with synchronized drawing animation
 function CombinedFlightPath({ 
@@ -64,9 +59,9 @@ function CombinedFlightPath({
     geo.setDrawRange(0, 0); // Start hidden
     
     const mat = new THREE.LineBasicMaterial({
-      color: 0x00ff88,
+      color: COLORS.FLIGHT_PATH,
       transparent: true,
-      opacity: 0.9,
+      opacity: FLIGHT_PATH.TRAVELED_OPACITY,
     });
     
     return { geometry: geo, material: mat, totalPoints: pts.length };
@@ -116,11 +111,11 @@ function CombinedFlightPath({
     geo.setAttribute('lineDistance', new THREE.Float32BufferAttribute(lineDistances, 1));
     
     const mat = new THREE.LineDashedMaterial({
-      color: 0x00ff88,
+      color: COLORS.FLIGHT_PATH,
       transparent: true,
-      opacity: 0.5,
-      dashSize: 0.002,
-      gapSize: 0.004,
+      opacity: FLIGHT_PATH.PREDICTED_OPACITY,
+      dashSize: FLIGHT_PATH.DASH_SIZE,
+      gapSize: FLIGHT_PATH.GAP_SIZE,
     });
     
     return { geometry: geo, material: mat, totalPoints: pts.length };
@@ -157,12 +152,12 @@ function CombinedFlightPath({
     if (!traveled.geometry || !predicted.geometry) return;
     
     // Progress the animation
-    animationProgress.current = Math.min(animationProgress.current + delta / TOTAL_ANIMATION_TIME, 1);
+    animationProgress.current = Math.min(animationProgress.current + delta / FLIGHT_PATH.ANIMATION_DURATION, 1);
     const t = animationProgress.current;
     
     // Phase 1: Draw traveled path (origin → plane)
-    if (t <= TRAVELED_RATIO) {
-      const phaseT = t / TRAVELED_RATIO;
+    if (t <= FLIGHT_PATH.TRAVELED_RATIO) {
+      const phaseT = t / FLIGHT_PATH.TRAVELED_RATIO;
       const visibleCount = Math.max(2, Math.floor(phaseT * traveled.totalPoints));
       traveled.geometry.setDrawRange(0, visibleCount);
       predicted.geometry.setDrawRange(0, 0);
@@ -171,7 +166,7 @@ function CombinedFlightPath({
     else {
       traveled.geometry.setDrawRange(0, traveled.totalPoints);
       
-      const phaseT = (t - TRAVELED_RATIO) / PREDICTED_RATIO;
+      const phaseT = (t - FLIGHT_PATH.TRAVELED_RATIO) / FLIGHT_PATH.PREDICTED_RATIO;
       
       let easedT: number;
       if (phaseT < 0.7) {
@@ -255,11 +250,11 @@ function PredictedPathOnly({ aircraft }: { aircraft: Aircraft }) {
     geo.setAttribute('lineDistance', new THREE.Float32BufferAttribute(lineDistances, 1));
     
     const mat = new THREE.LineDashedMaterial({
-      color: 0x00ff88,
+      color: COLORS.FLIGHT_PATH,
       transparent: true,
-      opacity: 0.5,
-      dashSize: 0.002,
-      gapSize: 0.004,
+      opacity: FLIGHT_PATH.PREDICTED_OPACITY,
+      dashSize: FLIGHT_PATH.DASH_SIZE,
+      gapSize: FLIGHT_PATH.GAP_SIZE,
     });
     
     return { geometry: geo, material: mat, totalPoints: pts.length };

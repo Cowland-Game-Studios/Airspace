@@ -35,6 +35,14 @@ export class ErrorBoundary extends Component<Props, State> {
     window.location.reload();
   };
 
+  handleCopy = (errorDump: string) => {
+    navigator.clipboard.writeText(errorDump).then(() => {
+      // Visual feedback handled by state if needed
+    }).catch(err => {
+      console.error('Failed to copy:', err);
+    });
+  };
+
   render() {
     if (this.state.hasError) {
       const errorDump = [
@@ -69,13 +77,21 @@ export class ErrorBoundary extends Component<Props, State> {
               onClick={(e) => (e.target as HTMLTextAreaElement).select()}
             />
 
-            {/* Reload button - bordered */}
-            <button
-              onClick={this.handleReload}
-              className="text-[10px] text-white tracking-[0.2em] border border-[#333] px-6 py-3 hover:bg-white/5 hover:border-[#555] transition-all"
-            >
-              RELOAD APPLICATION
-            </button>
+            {/* Action buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => this.handleCopy(errorDump)}
+                className="text-[10px] text-[#888] tracking-[0.2em] border border-[#333] px-6 py-3 hover:bg-white/5 hover:border-[#555] hover:text-white transition-all"
+              >
+                COPY ERROR
+              </button>
+              <button
+                onClick={this.handleReload}
+                className="text-[10px] text-white tracking-[0.2em] border border-[#333] px-6 py-3 hover:bg-white/5 hover:border-[#555] transition-all"
+              >
+                RELOAD APPLICATION
+              </button>
+            </div>
           </div>
         </div>
       );

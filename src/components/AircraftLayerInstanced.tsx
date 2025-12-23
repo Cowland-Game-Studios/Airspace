@@ -20,17 +20,6 @@ import { calculateViewVisibility } from '@/utils/lod';
 // Single InstancedMesh for all aircraft - massive performance improvement
 // ============================================================================
 
-// Animation timing
-const FADE_IN_STAGGER_DURATION = 1.2;
-const FADE_IN_INDIVIDUAL_DURATION = 0.4;
-
-// LOD threshold for switching geometry
-const LOD_THRESHOLD = AIRCRAFT.LOD_THRESHOLD;
-
-// Deloading constants
-const DELOAD_GRACE_PERIOD = AIRCRAFT.DELOAD_GRACE_PERIOD;
-const DELOAD_CHECK_INTERVAL = AIRCRAFT.DELOAD_CHECK_INTERVAL;
-
 // Per-aircraft state for animations and predictions
 interface AircraftState {
   // Animation
@@ -86,7 +75,7 @@ export function AircraftLayerInstanced() {
   const animationStartTime = useRef<number | null>(null);
   
   // Determine if we should use simple LOD geometry
-  const useSimpleGeometry = aircraft.length > LOD_THRESHOLD;
+  const useSimpleGeometry = aircraft.length > AIRCRAFT.LOD_THRESHOLD;
   
   // Get the appropriate shared geometry
   const geometry = useMemo(() => {
@@ -164,7 +153,7 @@ export function AircraftLayerInstanced() {
           return;
         }
         
-        if (nowMs - exitTime > DELOAD_GRACE_PERIOD) {
+        if (nowMs - exitTime > AIRCRAFT.DELOAD_GRACE_PERIOD) {
           toRemove.push(id);
           outOfViewSince.current.delete(id);
         }
@@ -176,7 +165,7 @@ export function AircraftLayerInstanced() {
       }
     };
     
-    const interval = setInterval(checkDeload, DELOAD_CHECK_INTERVAL);
+    const interval = setInterval(checkDeload, AIRCRAFT.DELOAD_CHECK_INTERVAL);
     return () => clearInterval(interval);
   }, [removeAircraft, selectedAircraftId, hoveredAircraftId]);
   
@@ -207,7 +196,7 @@ export function AircraftLayerInstanced() {
     const cameraDistance = camera.position.length();
     
     // Zoom-based scale
-    const zoomScale = Math.max(0.2, Math.min(1.2, cameraDistance / 5));
+    const zoomScale = Math.max(AIRCRAFT.ZOOM_SCALE_MIN, Math.min(AIRCRAFT.ZOOM_SCALE_MAX, cameraDistance / AIRCRAFT.ZOOM_SCALE_FACTOR));
     
     let needsColorUpdate = false;
     
@@ -223,7 +212,7 @@ export function AircraftLayerInstanced() {
       
       // Calculate stagger delay based on longitude
       const normalizedLon = (ac.position.longitude + 180) / 360;
-      const staggerDelay = normalizedLon * FADE_IN_STAGGER_DURATION;
+      const staggerDelay = normalizedLon * AIRCRAFT.FADE_IN_STAGGER_DURATION;
       
       // Initialize fade-in start time
       if (canAnimate && acState.fadeInStartTime < 0) {
@@ -236,7 +225,7 @@ export function AircraftLayerInstanced() {
         : -1;
       const fadeProgress = timeSinceFadeStart < 0 
         ? 0 
-        : Math.min(1, timeSinceFadeStart / FADE_IN_INDIVIDUAL_DURATION);
+        : Math.min(1, timeSinceFadeStart / AIRCRAFT.FADE_IN_INDIVIDUAL_DURATION);
       
       // Before fade starts, hide aircraft
       if (fadeProgress <= 0) {
@@ -251,7 +240,7 @@ export function AircraftLayerInstanced() {
       let finalLat = acState.lastServerLat;
       let finalLon = acState.lastServerLon;
       
-      if (acState.lastServerSpeed > 10 && elapsedSeconds < 120) {
+      if (acState.lastServerSpeed > AIRCRAFT.MIN_SPEED_FOR_PREDICTION && elapsedSeconds < AIRCRAFT.PREDICTION_MAX_SECONDS) {
         const predicted = predictPosition(
           acState.lastServerLat,
           acState.lastServerLon,
@@ -276,7 +265,7 @@ export function AircraftLayerInstanced() {
       );
       
       // Smooth rotation interpolation
-      const rotSmoothFactor = Math.min(delta * 0.3, 0.03);
+      const rotSmoothFactor = Math.min(delta * AIRCRAFT.ROTATION_SMOOTH_FACTOR, AIRCRAFT.ROTATION_SMOOTH_MAX);
       acState.currentQuat.slerp(allocs.current.quat, rotSmoothFactor);
       dummy.quaternion.copy(acState.currentQuat);
       
@@ -293,18 +282,18 @@ export function AircraftLayerInstanced() {
       }
       
       // Smooth visibility transition
-      const visSmoothFactor = Math.min(delta * 4, 0.25);
+      const visSmoothFactor = Math.min(delta * AIRCRAFT.VISIBILITY_SMOOTH_FACTOR, AIRCRAFT.VISIBILITY_SMOOTH_MAX);
       acState.smoothVisibility += (targetVisibility - acState.smoothVisibility) * visSmoothFactor;
       
       // Calculate final scale
-      const baseScale = isSelected ? 1.8 : isHovered ? 1.6 : 1;
-      const pulse = isHighlighted ? 1 + Math.sin(elapsedTime * 5) * 0.15 : 1;
+      const baseScale = isSelected ? AIRCRAFT.SCALE_SELECTED : isHovered ? AIRCRAFT.SCALE_HOVERED : 1;
+      const pulse = isHighlighted ? 1 + Math.sin(elapsedTime * AIRCRAFT.PULSE_SPEED) * AIRCRAFT.PULSE_AMPLITUDE : 1;
       const finalScale = baseScale * pulse * zoomScale * acState.smoothVisibility * fadeProgress;
       
       dummy.scale.setScalar(finalScale);
       
       // Update opacity
-      const opacitySmoothFactor = Math.min(delta * 3, 0.2);
+      const opacitySmoothFactor = Math.min(delta * AIRCRAFT.OPACITY_SMOOTH_FACTOR, AIRCRAFT.OPACITY_SMOOTH_MAX);
       const targetOpacity = isHighlighted ? 1 : acState.smoothVisibility;
       acState.currentOpacity += (targetOpacity - acState.currentOpacity) * opacitySmoothFactor;
       

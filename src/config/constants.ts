@@ -9,26 +9,27 @@
 
 export const CAMERA = {
   // Distance limits
-  MIN_DISTANCE: 1.15,          // Minimum zoom (above globe surface, radius = 1)
-  MAX_DISTANCE: 5,             // Maximum zoom (furthest from globe)
-  DEFAULT_DISTANCE: 2.5,       // Default camera distance on load
-  CITY_ZOOM_DISTANCE: 1.15,    // Zoom level when viewing a city
-  PATH_VIEW_DISTANCE: 1.25,    // Distance to view full flight path
-  FLYOVER_ZOOM_OUT: 2.2,       // Distance to zoom out during flyover animation
+  MIN_DISTANCE: 1.15,
+  MAX_DISTANCE: 5,
+  DEFAULT_DISTANCE: 2.5,
+  CITY_ZOOM_DISTANCE: 1.15,
+  PATH_VIEW_DISTANCE: 1.25,
+  FLYOVER_ZOOM_OUT: 2.2,
   
   // Follow cam
-  FOLLOW_DISTANCE: 0.04,       // Distance behind aircraft in follow mode
-  FOLLOW_LOOK_AHEAD: 0.01,     // How far ahead of aircraft to look
+  FOLLOW_DISTANCE: 0.04,
+  FOLLOW_LOOK_AHEAD: 0.01,
   
   // Controls
-  ZOOM_SPEED_KEYBOARD: 0.7,    // Keyboard zoom speed multiplier
-  ZOOM_SPEED_TRACKPAD: 0.4,    // Trackpad/scroll zoom speed
-  PAN_SPEED: 0.3,              // Arrow key pan speed
-  ROTATE_SPEED_MIN: 0.08,      // Minimum rotation speed (zoomed in)
-  ROTATE_SPEED_MAX: 0.8,       // Maximum rotation speed (zoomed out)
+  ZOOM_SPEED_KEYBOARD: 0.7,
+  ZOOM_SPEED_TRACKPAD: 0.4,
+  PAN_SPEED: 0.3,
+  ROTATE_SPEED_MIN: 0.08,
+  ROTATE_SPEED_MAX: 0.8,
   
   // Animation
-  SLANT_ANGLE: 0.4,            // Radians - angle of slant from vertical (~23 degrees)
+  SLANT_ANGLE: 0.4,
+  YAW_SPEED: 0.4,
 } as const;
 
 // =============================================================================
@@ -36,7 +37,6 @@ export const CAMERA = {
 // =============================================================================
 
 export const LOCATIONS = {
-  // Default fallback location (New York City)
   DEFAULT: { lat: 40.7128, lon: -74.006 },
 } as const;
 
@@ -45,13 +45,9 @@ export const LOCATIONS = {
 // =============================================================================
 
 export const GLOBE = {
-  // Altitude to 3D position conversion factor
   ALTITUDE_SCALE: 0.0000005,
-  
-  // Surface offsets
-  AIRPORT_SURFACE_OFFSET: 1.001,  // Airports slightly above globe surface
-  
-  // Earth constants
+  AIRPORT_SURFACE_OFFSET: 1.001,
+  BORDER_SURFACE_OFFSET: 1.002,
   EARTH_RADIUS_KM: 6371,
   EARTH_CIRCUMFERENCE_KM: 2 * Math.PI * 6371,
 } as const;
@@ -62,23 +58,44 @@ export const GLOBE = {
 
 export const AIRCRAFT = {
   // Geometry sizes
-  SIMPLE_TRIANGLE_SIZE: 0.006,    // LOD simple triangle size
-  DETAILED_PLANE_SIZE: 0.008,     // Detailed paper airplane size
-  HITBOX_SIZE: 0.02,              // Click hitbox size
+  SIMPLE_TRIANGLE_SIZE: 0.006,
+  DETAILED_PLANE_SIZE: 0.008,
+  HITBOX_SIZE: 0.02,
   
   // LOD (Level of Detail)
-  LOD_THRESHOLD: 500,             // Switch to simple triangles above this count
+  LOD_THRESHOLD: 500,
   
   // Viewport edge fading
-  EDGE_FADE_ZONE: 0.05,           // 5% of viewport for edge fade
+  EDGE_FADE_ZONE: 0.05,
   
   // Deloading
-  DELOAD_GRACE_PERIOD: 5000,      // ms before deloading out-of-view aircraft
-  DELOAD_CHECK_INTERVAL: 2000,    // ms between deload checks
+  DELOAD_GRACE_PERIOD: 5000,
+  DELOAD_CHECK_INTERVAL: 2000,
   
   // Dead reckoning
-  PREDICTION_MAX_SECONDS: 120,    // Max seconds to predict position
-  MIN_SPEED_FOR_PREDICTION: 10,   // Knots - minimum speed to use prediction
+  PREDICTION_MAX_SECONDS: 120,
+  MIN_SPEED_FOR_PREDICTION: 10,
+  
+  // Animation
+  FADE_IN_STAGGER_DURATION: 1.2,
+  FADE_IN_INDIVIDUAL_DURATION: 0.4,
+  
+  // Scaling
+  SCALE_SELECTED: 1.8,
+  SCALE_HOVERED: 1.6,
+  PULSE_SPEED: 5,
+  PULSE_AMPLITUDE: 0.15,
+  ZOOM_SCALE_FACTOR: 5,
+  ZOOM_SCALE_MIN: 0.2,
+  ZOOM_SCALE_MAX: 1.2,
+  
+  // Smoothing
+  ROTATION_SMOOTH_FACTOR: 0.3,
+  ROTATION_SMOOTH_MAX: 0.03,
+  VISIBILITY_SMOOTH_FACTOR: 4,
+  VISIBILITY_SMOOTH_MAX: 0.25,
+  OPACITY_SMOOTH_FACTOR: 3,
+  OPACITY_SMOOTH_MAX: 0.2,
 } as const;
 
 // =============================================================================
@@ -87,13 +104,28 @@ export const AIRCRAFT = {
 
 export const AIRPORTS = {
   // Geometry sizes
-  LARGE_AIRPORT_SIZE: 0.0025,     // Large airport square size
-  SMALL_AIRPORT_SIZE: 0.0012,     // Small airport square size
+  LARGE_AIRPORT_SIZE: 0.0025,
+  SMALL_AIRPORT_SIZE: 0.0012,
   
   // Visibility
-  SMALL_AIRPORT_FADE_DISTANCE: 1.25, // Camera distance where small airports start fading (lower = fade sooner)
-  SMALL_AIRPORT_FADE_SPEED: 3,       // Fade speed multiplier
-  SMALL_AIRPORT_MAX_OPACITY: 0.5,    // Maximum opacity for small airports
+  SMALL_AIRPORT_FADE_DISTANCE: 1.25,
+  SMALL_AIRPORT_FADE_SPEED: 3,
+  SMALL_AIRPORT_MAX_OPACITY: 0.5,
+  
+  // Animation
+  FADE_IN_STAGGER_DURATION: 1.2,
+  RIPPLE_DURATION: 0.5,
+  RIPPLE_OVERSHOOT: 1.6,
+  OPACITY_SMOOTH_FACTOR: 4,
+} as const;
+
+// =============================================================================
+// COUNTRY BORDERS
+// =============================================================================
+
+export const BORDERS = {
+  DRAW_DURATION: 1.5,
+  MAX_OPACITY: 0.6,
 } as const;
 
 // =============================================================================
@@ -101,14 +133,17 @@ export const AIRPORTS = {
 // =============================================================================
 
 export const FLIGHT_PATH = {
-  // Animation
-  ANIMATION_DURATION: 0.3,        // Total animation time in seconds
-  TRAVELED_RATIO: 0.5,            // First half for traveled path
-  PREDICTED_RATIO: 0.5,           // Second half for predicted path
+  ANIMATION_DURATION: 0.3,
+  TRAVELED_RATIO: 0.5,
+  PREDICTED_RATIO: 0.5,
+  PREDICT_MINUTES: 10,
+  HISTORY_MINUTES: 30,
   
-  // Prediction
-  PREDICT_MINUTES: 10,            // Minutes of future path to show
-  HISTORY_MINUTES: 30,            // Minutes of past track (for mock data)
+  // Line styling
+  TRAVELED_OPACITY: 0.9,
+  PREDICTED_OPACITY: 0.5,
+  DASH_SIZE: 0.002,
+  GAP_SIZE: 0.004,
 } as const;
 
 // =============================================================================
@@ -116,49 +151,74 @@ export const FLIGHT_PATH = {
 // =============================================================================
 
 export const POLLING = {
-  BASE_INTERVAL: 15000,           // Base polling interval in ms
-  MAX_BACKOFF_MULTIPLIER: 8,      // Maximum backoff (8x = 2 minutes)
-  DEBOUNCE_VIEWPORT_CHANGE: 300,  // ms to debounce viewport changes
-  
-  // Cache
-  FLIGHT_TRACK_CACHE_TTL: 60000,  // 1 minute cache for flight tracks
+  BASE_INTERVAL: 15000,
+  MAX_BACKOFF_MULTIPLIER: 8,
+  DEBOUNCE_VIEWPORT_CHANGE: 300,
+  FLIGHT_TRACK_CACHE_TTL: 60000,
 } as const;
 
 // =============================================================================
-// INPUT CONTROLS (Mouse / Keyboard / Touch)
+// INPUT CONTROLS
 // =============================================================================
 
 export const INPUT = {
-  // Mouse controls (OrbitControls)
   MOUSE: {
-    PAN_SPEED: 0.5,               // Mouse pan speed
-    ROTATE_SPEED: 0.5,            // Mouse rotate speed (base, adjusted by zoom)
-    DAMPING_FACTOR: 0.1,          // Inertia/smoothing factor
+    PAN_SPEED: 0.5,
+    ROTATE_SPEED: 0.5,
+    DAMPING_FACTOR: 0.1,
   },
-  
-  // Keyboard controls
   KEYBOARD: {
-    ZOOM_SPEED: 1.5,              // Zoom in/out speed (per second)
-    PAN_SPEED: 0.3,               // Arrow key pan speed (per second)
-    ZOOM_LIMIT_TOLERANCE: 0.001,  // Tolerance for zoom limit detection
-    ROTATE_ZOOM_SCALE: 0.2,       // Scale factor for zoom-based rotation speed
+    ZOOM_SPEED: 1.5,
+    PAN_SPEED: 0.3,
+    ZOOM_LIMIT_TOLERANCE: 0.001,
+    ROTATE_ZOOM_SCALE: 0.2,
   },
-  
-  // Touch controls
   TOUCH: {
-    // Same as mouse for now, but can be customized
     PAN_SPEED: 0.5,
     ROTATE_SPEED: 0.5,
   },
-  
-  // Animation speeds
   ANIMATION: {
-    CAMERA_DIRECT_SPEED: 3.0,     // Direct animation speed multiplier (fast, snappy)
-    CAMERA_FLYOVER_SPEED: 2.0,    // Flyover animation speed multiplier
-    FLYOVER_TRAVEL_THRESHOLD: 0.3, // Min distance to trigger flyover
-    OFFSET_ZOOM_MULTIPLIER: 0.5,  // How fast offset zooms relative to camera
-    MIN_OFFSET_DISTANCE: 0.02,    // Minimum camera offset distance
+    CAMERA_DIRECT_SPEED: 3.0,
+    CAMERA_FLYOVER_SPEED: 2.0,
+    FLYOVER_TRAVEL_THRESHOLD: 0.3,
+    OFFSET_ZOOM_MULTIPLIER: 0.5,
+    MIN_OFFSET_DISTANCE: 0.02,
   },
+} as const;
+
+// =============================================================================
+// INTRO / LOADING ANIMATION
+// =============================================================================
+
+export const INTRO = {
+  // Loading screen stage durations (ms)
+  STAGES: [
+    { text: 'ESTABLISHING_SECURE_CONNECTION', duration: 400 },
+    { text: 'AUTHENTICATING_CLEARANCE_LEVEL', duration: 350 },
+    { text: 'LOADING_SATELLITE_IMAGERY', duration: 500 },
+    { text: 'CALIBRATING_RADAR_SYSTEMS', duration: 450 },
+    { text: 'SYNCHRONIZING_FLIGHT_DATA', duration: 400 },
+    { text: 'ACQUIRING_GPS_COORDINATES', duration: 600 },
+    { text: 'INITIALIZING_TRACKING_MATRIX', duration: 350 },
+    { text: 'SYSTEM_READY', duration: 300 },
+  ],
+  
+  // Intro phase timing (ms)
+  BORDERS_DELAY: 200,
+  BORDERS_DURATION: 1500,
+  AIRPORTS_DELAY: 300,
+  AIRPORTS_DURATION: 1200,
+  AIRCRAFT_DELAY: 800,
+  AIRCRAFT_DURATION: 1200,
+  
+  // Loading screen fade
+  FADE_DURATION: 700,
+  FADE_DELAY: 200,
+  
+  // Progress animation
+  PROGRESS_INTERVAL: 50,
+  PROGRESS_SMOOTH_FACTOR: 0.15,
+  PROGRESS_JITTER: 3,
 } as const;
 
 // =============================================================================
@@ -167,19 +227,39 @@ export const INPUT = {
 
 export const UI = {
   // Mode bar
-  TAB_HOLD_THRESHOLD: 300,        // ms to trigger mode menu on Tab hold
+  TAB_HOLD_THRESHOLD: 300,
   
   // Search
-  SEARCH_DEBOUNCE: 300,           // ms debounce for search input
-  SEARCH_MAX_RESULTS: 30,         // Maximum search results to show
+  SEARCH_DEBOUNCE: 300,
+  SEARCH_MAX_RESULTS: 30,
   
   // Entity snapping
-  SNAP_MAX_DISTANCE: 30,          // Max degrees to search for snap target
-  SNAP_MIN_DISTANCE: 0.5,         // Min degrees (ignore same position)
-  HOVER_SNAP_DISTANCE: 25,        // Degrees within which to hover (5 degrees squared)
+  SNAP_MAX_DISTANCE: 30,
+  SNAP_MIN_DISTANCE: 0.5,
+  HOVER_SNAP_DISTANCE: 25,
   
   // Entity info panel
-  INFO_PANEL_WIDTH: 300,          // Fixed width for bottom-left detail card (px)
+  INFO_PANEL_WIDTH: 300,
+  INFO_PANEL_MAX_HEIGHT: 600,
+  INFO_PANEL_ANIM_DURATION: 300,
+  
+  // Toast notifications
+  TOAST: {
+    DISPLAY_DURATION: 1200,
+    EXIT_ANIM_DURATION: 300,
+    STAGGER_DELAY: 30,
+    MIN_OPACITY: 0.25,
+    OPACITY_DECAY: 0.12,
+    BG_OPACITY_BASE: 0.7,
+    BG_OPACITY_STEP: 0.03,
+  },
+  
+  // Bottom bar
+  BOTTOM_BAR_ANIM_DELAY: 900,
+  BOTTOM_BAR_ITEM_STAGGER: 0.12,
+  
+  // Prediction update interval
+  PREDICTION_UPDATE_INTERVAL: 100,
 } as const;
 
 // =============================================================================
@@ -196,10 +276,85 @@ export const COLORS = {
   AIRPORT_DEFAULT: '#ffffff',
   AIRPORT_HOVERED: '#00ff66',
   
-  // UI
+  // Mode bar
+  MODE_ALL: { active: '#66aaff', inactive: '#335577', highlighted: '#88ccff' },
+  MODE_AIRCRAFT: { active: '#00ff88', inactive: '#005533', highlighted: '#66ffaa' },
+  MODE_AIRPORT: { active: '#ffffff', inactive: '#555555', highlighted: '#cccccc' },
+  MODE_MISSILE: { active: '#ff4444', inactive: '#552222', highlighted: '#ff6666' },
+  
+  // General UI
   UI_ACCENT: '#00ff88',
-  UI_MUTED: '#555',
-  UI_DARK: '#222',
-  UI_HIGHLIGHT: '#ffff00',
+  UI_ACCENT_ALT: '#00ddff',
+  UI_ACCENT_BLUE: '#66aaff',
+  UI_WARNING: '#ffaa00',
+  UI_ERROR: '#ff4444',
+  
+  // Text
+  TEXT_PRIMARY: '#ffffff',
+  TEXT_SECONDARY: '#888888',
+  TEXT_MUTED: '#555555',
+  TEXT_DIMMED: '#444444',
+  TEXT_DARK: '#333333',
+  
+  // Backgrounds
+  BG_DARK: '#000000',
+  BG_OVERLAY: 'rgba(0, 0, 0, 0.8)',
+  BG_GLASS: 'rgba(0, 0, 0, 0.3)',
+  BG_ELEVATED: '#111111',
+  BG_HOVER: '#222222',
+  
+  // Borders
+  BORDER_DEFAULT: '#333333',
+  BORDER_SUBTLE: '#1a1a1a',
+  BORDER_FOCUS: 'rgba(0, 255, 136, 0.5)',
+  
+  // Status
+  STATUS_ONLINE: '#00ff88',
+  STATUS_OFFLINE: '#666666',
+  
+  // 3D
+  GLOBE_SURFACE: '#000000',
+  BORDERS_LINE: '#ffffff',
+  FLIGHT_PATH: '#00ff88',
 } as const;
 
+// =============================================================================
+// TYPOGRAPHY
+// =============================================================================
+
+export const TYPOGRAPHY = {
+  // Font sizes (in Tailwind notation for easy use)
+  SIZE_XS: '8px',
+  SIZE_SM: '9px',
+  SIZE_BASE: '10px',
+  SIZE_MD: '11px',
+  SIZE_LG: '12px',
+  SIZE_XL: '14px',
+  SIZE_2XL: '16px',
+  
+  // Font families (CSS values)
+  FONT_MONO: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
+  
+  // Letter spacing
+  TRACKING_TIGHT: '0.05em',
+  TRACKING_NORMAL: '0.1em',
+  TRACKING_WIDE: '0.15em',
+  TRACKING_WIDER: '0.2em',
+  TRACKING_WIDEST: '0.25em',
+} as const;
+
+// =============================================================================
+// Z-INDEX LAYERS
+// =============================================================================
+
+export const Z_INDEX = {
+  GLOBE: 0,
+  BORDERS: 1,
+  AIRPORTS: 2,
+  AIRCRAFT: 3,
+  UI_OVERLAY: 10,
+  MODAL: 50,
+  TOAST: 60,
+  LOADING: 100,
+  ERROR: 99999,
+} as const;

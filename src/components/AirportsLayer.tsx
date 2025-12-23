@@ -15,18 +15,12 @@ import { createRenderLoopAllocations } from '@/utils/sharedGeometry';
 // Fixed: Pre-allocated objects for render loop, no GC pressure
 // ============================================================================
 
-const AIRPORT_ANIM_DURATION = 1.2;
-const AIRPORT_RIPPLE_DURATION = 0.5;
-const AIRPORT_OVERSHOOT = 1.6;
-const OPACITY_SMOOTH_FACTOR = 4;
-
 // Ripple ease: starts big, settles to 1.0
 function rippleEase(t: number): number {
   if (t <= 0) return 0;
   if (t >= 1) return 1;
-  const overshoot = AIRPORT_OVERSHOOT;
   const decay = Math.pow(1 - t, 2);
-  return 1 + (overshoot - 1) * decay * Math.sin(t * Math.PI);
+  return 1 + (AIRPORTS.RIPPLE_OVERSHOOT - 1) * decay * Math.sin(t * Math.PI);
 }
 
 // Instanced mesh for large airports
@@ -56,7 +50,7 @@ function LargeAirportsInstanced({ airports }: { airports: Airport[] }) {
       const normalizedLon = (airport.lon + 180) / 360;
       const normalizedLat = (90 - airport.lat) / 180;
       const diagonal = (normalizedLon + normalizedLat) / 2;
-      return diagonal * AIRPORT_ANIM_DURATION;
+      return diagonal * AIRPORTS.FADE_IN_STAGGER_DURATION;
     });
   }, [airports]);
   
@@ -94,7 +88,7 @@ function LargeAirportsInstanced({ airports }: { airports: Airport[] }) {
       instanceOpacities.current = new Array(positions.length).fill(0);
     }
     
-    const smoothFactor = Math.min(delta * OPACITY_SMOOTH_FACTOR, 0.25);
+    const smoothFactor = Math.min(delta * AIRPORTS.OPACITY_SMOOTH_FACTOR, 0.25);
     
     for (let i = 0; i < positions.length; i++) {
       const pos = positions[i];
@@ -107,7 +101,7 @@ function LargeAirportsInstanced({ airports }: { airports: Airport[] }) {
       // Calculate animation progress
       const delay = staggerDelays[i];
       const individualTime = Math.max(0, animationTime.current - delay);
-      const individualProgress = Math.min(1, individualTime / AIRPORT_RIPPLE_DURATION);
+      const individualProgress = Math.min(1, individualTime / AIRPORTS.RIPPLE_DURATION);
       maxProgress = Math.max(maxProgress, individualProgress);
       
       const rippleScale = animationStarted.current ? rippleEase(individualProgress) : 0;
@@ -207,7 +201,7 @@ function SmallAirportsInstanced({ airports }: { airports: Airport[] }) {
       const normalizedLon = (airport.lon + 180) / 360;
       const normalizedLat = (90 - airport.lat) / 180;
       const diagonal = (normalizedLon + normalizedLat) / 2;
-      return diagonal * AIRPORT_ANIM_DURATION;
+      return diagonal * AIRPORTS.FADE_IN_STAGGER_DURATION;
     });
   }, [airports]);
   
@@ -217,19 +211,16 @@ function SmallAirportsInstanced({ airports }: { airports: Airport[] }) {
     instanceOpacities.current = new Array(airports.length).fill(0);
   }, [airports.length]);
   
-  // Update colors
+  // Update colors based on hover state
   useEffect(() => {
     if (!meshRef.current) return;
     
     const color = new THREE.Color();
     const hoveredIdx = hoveredAirport ? indexToIcao.indexOf(hoveredAirport) : -1;
-    const hasHover = hoveredIdx >= 0;
     
     for (let i = 0; i < airports.length; i++) {
       if (i === hoveredIdx) {
         color.set(COLORS.AIRPORT_HOVERED);
-      } else if (hasHover) {
-        color.set('#333333');
       } else {
         color.set(COLORS.AIRPORT_DEFAULT);
       }
@@ -269,7 +260,7 @@ function SmallAirportsInstanced({ airports }: { airports: Airport[] }) {
       instanceOpacities.current = new Array(positions.length).fill(0);
     }
     
-    const smoothFactor = Math.min(delta * OPACITY_SMOOTH_FACTOR, 0.25);
+    const smoothFactor = Math.min(delta * AIRPORTS.OPACITY_SMOOTH_FACTOR, 0.25);
     
     for (let i = 0; i < positions.length; i++) {
       const pos = positions[i];
@@ -280,7 +271,7 @@ function SmallAirportsInstanced({ airports }: { airports: Airport[] }) {
       
       const delay = staggerDelays[i];
       const individualTime = Math.max(0, animationTime.current - delay);
-      const individualProgress = Math.min(1, individualTime / AIRPORT_RIPPLE_DURATION);
+      const individualProgress = Math.min(1, individualTime / AIRPORTS.RIPPLE_DURATION);
       maxProgress = Math.max(maxProgress, individualProgress);
       
       const rippleScale = animationStarted.current ? rippleEase(individualProgress) : 0;

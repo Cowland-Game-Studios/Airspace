@@ -7,6 +7,8 @@ import { SearchBar } from './SearchBar';
 import { ModeBar } from './ModeBar';
 import { useGlobalInput } from '@/hooks/useInputManager';
 import { InputAction } from '@/lib/inputManager';
+import { UI, COLORS } from '@/config/constants';
+import { TEXT, BG, BORDER, COMPONENT } from '@/config/styles';
 
 export function Dashboard() {
   const gameState = useRadarStore((state) => state.gameState);
@@ -19,10 +21,9 @@ export function Dashboard() {
   
   useEffect(() => {
     if (locationReady && !animateIn) {
-      // Wait for loading screen fade (700ms + 200ms delay)
       const timer = setTimeout(() => {
         setAnimateIn(true);
-      }, 900);
+      }, UI.BOTTOM_BAR_ANIM_DELAY);
       return () => clearTimeout(timer);
     }
   }, [locationReady, animateIn]);
@@ -75,11 +76,11 @@ export function Dashboard() {
       
           {/* Right: Hints & Version */}
           <div 
-            className={`shrink-0 flex flex-col justify-center text-right bg-black/30 backdrop-blur-md border border-[#333] px-3 ${animateIn ? 'bottom-bar-item animate-in' : 'bottom-bar-item'}`}
+            className={`shrink-0 flex flex-col justify-center text-right ${BG.GLASS_BLUR} ${BORDER.PANEL} px-3 ${animateIn ? 'bottom-bar-item animate-in' : 'bottom-bar-item'}`}
             style={{ '--item-index': 2 } as React.CSSProperties}
           >
-            <div className="text-[8px] text-[#555]">WASD: move | ⇧+W/S: zoom | Q/E: tilt | TAB: filter | SPACE: search</div>
-            <div className="text-[8px] text-[#555]">Bullhorn Aerosystems (commercial - v1.0.2)</div>
+            <div className={`${TEXT.XS} ${TEXT.MUTED}`}>WASD: move | ⇧+W/S: zoom | Q/E: tilt | TAB: filter | SPACE: search</div>
+            <div className={`${TEXT.XS} ${TEXT.MUTED}`}>Bullhorn Aerosystems (commercial - v1.0.2)</div>
           </div>
         </div>
       </div>
@@ -88,10 +89,9 @@ export function Dashboard() {
       {/* New toasts appear at bottom, old ones rise up and fade out at top */}
       <div className="absolute bottom-20 right-4 pointer-events-none flex flex-col gap-2">
         {toasts.map((toast, index) => {
-          // Calculate opacity: index 0 = oldest (top) = faded, higher index = newer (bottom) = full
           // Distance from bottom: 0 = at bottom (newest), higher = further up (older)
           const distanceFromBottom = toasts.length - 1 - index;
-          const baseOpacity = Math.max(0.25, 1 - distanceFromBottom * 0.12);
+          const baseOpacity = Math.max(UI.TOAST.MIN_OPACITY, 1 - distanceFromBottom * UI.TOAST.OPACITY_DECAY);
           
           return (
             <div 
@@ -103,14 +103,14 @@ export function Dashboard() {
               }`}
               style={{
                 opacity: toast.exiting ? 0 : baseOpacity,
-                transitionDelay: toast.exiting ? '0ms' : `${index * 30}ms`,
+                transitionDelay: toast.exiting ? '0ms' : `${index * UI.TOAST.STAGGER_DELAY}ms`,
               }}
             >
               <div 
-                className="backdrop-blur-sm border px-4 py-2 text-xs tracking-widest whitespace-nowrap"
+                className={`backdrop-blur-sm border px-4 py-2 ${TEXT.LG} tracking-widest whitespace-nowrap`}
                 style={{
-                  backgroundColor: `rgba(0, 0, 0, ${0.7 + distanceFromBottom * 0.03})`,
-                  borderColor: `rgba(51, 51, 51, ${baseOpacity})`,
+                  backgroundColor: `rgba(0, 0, 0, ${UI.TOAST.BG_OPACITY_BASE + distanceFromBottom * UI.TOAST.BG_OPACITY_STEP})`,
+                  borderColor: COLORS.BORDER_DEFAULT,
                   color: `rgba(255, 255, 255, ${baseOpacity})`,
                 }}
               >
@@ -130,7 +130,7 @@ export function Dashboard() {
         
         .bottom-bar-item.animate-in {
           animation: popUpFadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-          animation-delay: calc(var(--item-index) * 0.12s);
+          animation-delay: calc(var(--item-index) * ${UI.BOTTOM_BAR_ITEM_STAGGER}s);
         }
         
         @keyframes popUpFadeIn {

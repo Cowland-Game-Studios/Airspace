@@ -4,7 +4,8 @@ import { useRef, useState, useEffect } from 'react';
 import { useRadarStore, Aircraft, Airport, ViewMode } from '@/store/gameStore';
 import { EntityRef, getEntityTypeName } from '@/types/entities';
 import { ScrollingText } from '../ScrollingText';
-import { UI } from '@/config/constants';
+import { UI, COLORS } from '@/config/constants';
+import { TEXT, BORDER, COMPONENT } from '@/config/styles';
 import { predictPosition, predictAltitude } from '@/utils/geo';
 
 // View mode display names
@@ -31,10 +32,10 @@ export function DataRow({
 }) {
   return (
     <div className="flex justify-between items-start gap-2 py-0.5">
-      <span className="text-[#555] shrink-0">{label}</span>
+      <span className={`${TEXT.MUTED} shrink-0`}>{label}</span>
       <ScrollingText 
         text={value} 
-        className="text-white text-right break-words"
+        className={`${TEXT.PRIMARY} text-right break-words`}
         glowColor={glowColor}
       />
     </div>
@@ -167,50 +168,50 @@ function AircraftInfoContent({
   return (
     <div className="space-y-3 select-none">
       {/* Header - Callsign & ICAO */}
-      <div className="flex items-start justify-between gap-3 border-b border-[#1a1a1a] pb-2">
+      <div className={`flex items-start justify-between gap-3 ${BORDER.DIVIDER_B} pb-2`}>
         <div className="flex-1 min-w-0">
-          <div className="text-white font-medium text-sm truncate">
+          <div className={`${TEXT.PRIMARY} font-medium text-sm truncate`}>
             <ScrollingText text={aircraft.callsign} glowColor={glowColor} />
           </div>
-          <div className="text-[#666] text-[9px] truncate">
+          <div className={`${TEXT.SECONDARY} ${TEXT.SM} truncate`}>
             {aircraft.originCountry || 'Unknown Origin'}
           </div>
         </div>
         <div className="text-right shrink-0">
-          <div className="text-[#00ff88] font-mono">
+          <div className={`${TEXT.ACCENT} ${TEXT.MONO}`}>
             <ScrollingText text={aircraft.id.toUpperCase()} glowColor="green" />
           </div>
-          <div className="text-[#444] text-[9px]">ICAO24</div>
+          <div className={`${TEXT.DIMMED} ${TEXT.SM}`}>ICAO24</div>
         </div>
       </div>
       
       {/* Status Row */}
       <div className="flex items-center gap-2">
-        <div className={'w-1.5 h-1.5 rounded-full ' + (aircraft.onGround ? 'bg-[#666]' : 'bg-[#00ff88]')} />
+        <div className={aircraft.onGround ? COMPONENT.DOT_INACTIVE : COMPONENT.DOT_ACTIVE} />
         <ScrollingText 
           text={aircraft.onGround ? 'ON_GROUND' : 'AIRBORNE'} 
-          className="text-[#888]"
+          className={TEXT.SECONDARY}
           glowColor={glowColor}
         />
         {aircraft.squawk && (
           <>
-            <span className="text-[#333]">|</span>
-            <span className="text-[#888]">SQK: <ScrollingText text={aircraft.squawk} className="text-[#ffaa00]" glowColor={glowColor} /></span>
+            <span className={TEXT.DARK}>|</span>
+            <span className={TEXT.SECONDARY}>SQK: <ScrollingText text={aircraft.squawk} className={TEXT.WARNING} glowColor={glowColor} /></span>
           </>
         )}
-        {aircraft.spi && <span className="text-[#ff4444] animate-pulse">SPI</span>}
+        {aircraft.spi && <span className={`${TEXT.ERROR} animate-pulse`}>SPI</span>}
       </div>
       
       {/* Position Section - Hover to show last synced for all */}
-      <div className="border-t border-[#1a1a1a] pt-2">
+      <div className={`${BORDER.DIVIDER} pt-2`}>
         <div 
-          className="text-[#444] text-[9px] tracking-wider mb-1 cursor-pointer select-none"
+          className={`${TEXT.DIMMED} ${TEXT.SM} tracking-wider mb-1 cursor-pointer select-none`}
           onMouseEnter={() => setShowLastSynced(true)}
           onMouseLeave={() => setShowLastSynced(false)}
         >
           POSITION {showLastSynced 
-            ? <span className="text-[#66aaff]">(LAST SYNCED)</span>
-            : <span className="text-[#00ff88]">(PREDICTED)</span>
+            ? <span className={TEXT.ACCENT_BLUE}>(LAST SYNCED)</span>
+            : <span className={TEXT.ACCENT}>(PREDICTED)</span>
           }
         </div>
         <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
@@ -228,15 +229,15 @@ function AircraftInfoContent({
       </div>
       
       {/* Altitude Section - Hover to show last synced for all */}
-      <div className="border-t border-[#1a1a1a] pt-2">
+      <div className={`${BORDER.DIVIDER} pt-2`}>
         <div 
-          className="text-[#444] text-[9px] tracking-wider mb-1 cursor-pointer select-none"
+          className={`${TEXT.DIMMED} ${TEXT.SM} tracking-wider mb-1 cursor-pointer select-none`}
           onMouseEnter={() => setShowLastSynced(true)}
           onMouseLeave={() => setShowLastSynced(false)}
         >
           ALTITUDE {showLastSynced 
-            ? <span className="text-[#66aaff]">(LAST SYNCED)</span>
-            : <span className="text-[#00ff88]">(PREDICTED)</span>
+            ? <span className={TEXT.ACCENT_BLUE}>(LAST SYNCED)</span>
+            : <span className={TEXT.ACCENT}>(PREDICTED)</span>
           }
         </div>
         <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
@@ -255,8 +256,8 @@ function AircraftInfoContent({
       </div>
       
       {/* Speed & Heading Section */}
-      <div className="border-t border-[#1a1a1a] pt-2">
-        <div className="text-[#444] text-[9px] tracking-wider mb-1">VELOCITY</div>
+      <div className={`${BORDER.DIVIDER} pt-2`}>
+        <div className={`${TEXT.DIMMED} ${TEXT.SM} tracking-wider mb-1`}>VELOCITY</div>
         <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
           <DataRow label="GND SPD" value={formatSpeed(aircraft.position.speed)} glowColor={glowColor} />
           <DataRow label="TRACK" value={formatHeading(aircraft.position.heading)} glowColor={glowColor} />
@@ -264,32 +265,32 @@ function AircraftInfoContent({
       </div>
       
       {/* Data Source */}
-      <div className="border-t border-[#1a1a1a] pt-2 flex justify-between text-[9px] select-none">
-        <span className="text-[#444]">SRC: <ScrollingText text={getPositionSource(aircraft.positionSource)} className="text-[#666]" glowColor={glowColor} /></span>
-        <span className="text-[#444]">LAST: <ScrollingText text={formatLastContact(aircraft.lastContact)} className="text-[#666]" glowColor={glowColor} /></span>
+      <div className={`${BORDER.DIVIDER} pt-2 flex justify-between ${TEXT.SM} select-none`}>
+        <span className={TEXT.DIMMED}>SRC: <ScrollingText text={getPositionSource(aircraft.positionSource)} className={TEXT.SECONDARY} glowColor={glowColor} /></span>
+        <span className={TEXT.DIMMED}>LAST: <ScrollingText text={formatLastContact(aircraft.lastContact)} className={TEXT.SECONDARY} glowColor={glowColor} /></span>
       </div>
       
       {/* View Mode Selector */}
-      <div className="border-t border-[#1a1a1a] pt-2 select-none">
-        <div className="text-[#444] text-[9px] tracking-wider mb-1">VIEW MODE</div>
+      <div className={`${BORDER.DIVIDER} pt-2 select-none`}>
+        <div className={`${TEXT.DIMMED} ${TEXT.SM} tracking-wider mb-1`}>VIEW MODE</div>
         <div className="flex items-center gap-2">
           <button 
             onClick={() => cycleViewMode('prev')}
-            className="text-[#555] hover:text-[#00ff88] text-sm px-1 transition-colors"
+            className={`${TEXT.MUTED} hover:${TEXT.ACCENT} text-sm px-1 transition-colors`}
           >
             ◀
           </button>
           <div className="flex-1 text-center">
-            <span className="text-[#00ff88] text-[10px] tracking-wider">{VIEW_MODE_LABELS[viewMode]}</span>
+            <span className={`${TEXT.ACCENT} ${TEXT.BASE} tracking-wider`}>{VIEW_MODE_LABELS[viewMode]}</span>
           </div>
           <button 
             onClick={() => cycleViewMode('next')}
-            className="text-[#555] hover:text-[#00ff88] text-sm px-1 transition-colors"
+            className={`${TEXT.MUTED} hover:${TEXT.ACCENT} text-sm px-1 transition-colors`}
           >
             ▶
           </button>
         </div>
-        <div className="text-[#333] text-[8px] text-center mt-1">Q / E to cycle</div>
+        <div className={`${TEXT.DARK} ${TEXT.XS} text-center mt-1`}>Q / E to cycle</div>
       </div>
     </div>
   );
@@ -309,20 +310,20 @@ function AirportInfoContent({
   return (
     <div className="space-y-2 select-none">
       {/* Header - ICAO & IATA */}
-      <div className="flex items-start justify-between gap-3 border-b border-[#1a1a1a] pb-2">
+      <div className={`flex items-start justify-between gap-3 ${BORDER.DIVIDER_B} pb-2`}>
         <div className="flex-1 min-w-0">
-          <div className="text-white font-medium text-sm">
+          <div className={`${TEXT.PRIMARY} font-medium text-sm`}>
             <ScrollingText text={airport.iata || airport.icao} glowColor={glowColor} />
           </div>
-          <div className="text-[#666] text-[9px] break-words">
+          <div className={`${TEXT.SECONDARY} ${TEXT.SM} break-words`}>
             {airport.name}
           </div>
         </div>
         <div className="text-right shrink-0">
-          <div className="text-[#00ff88] font-mono">
+          <div className={`${TEXT.ACCENT} ${TEXT.MONO}`}>
             <ScrollingText text={airport.icao} glowColor="green" />
           </div>
-          <div className="text-[#444] text-[9px]">ICAO</div>
+          <div className={`${TEXT.DIMMED} ${TEXT.SM}`}>ICAO</div>
         </div>
       </div>
       
@@ -418,12 +419,12 @@ export function EntityInfoPanel({ onClose: _onClose }: EntityInfoPanelProps) {
   
   return (
     <div 
-      className={'bg-black/90 transition-all duration-300 ease-out border-[#1a1a1a] ' + 
+      className={`bg-black/90 transition-all duration-300 ease-out ${BORDER.SUBTLE} ` + 
         (showContent ? 'border ' : 'border-0 ') +
         (isHovering && !isSelected ? 'border-dashed' : 'border-solid')}
       style={{ 
         width: `${UI.INFO_PANEL_WIDTH}px`,
-        maxHeight: showContent ? '600px' : '0px',
+        maxHeight: showContent ? `${UI.INFO_PANEL_MAX_HEIGHT}px` : '0px',
         opacity: isVisible ? 1 : 0,
         transform: isVisible ? 'translateY(0)' : 'translateY(20px)',
         overflow: 'hidden',
@@ -434,18 +435,18 @@ export function EntityInfoPanel({ onClose: _onClose }: EntityInfoPanelProps) {
         <>
           {/* Header */}
           <div 
-            className={'border-b border-[#1a1a1a] px-3 py-2 text-[10px] text-[#666] transition-colors duration-300 flex justify-between items-center ' + 
+            className={`${BORDER.DIVIDER_B} px-3 py-2 ${TEXT.BASE} ${TEXT.SECONDARY} transition-colors duration-300 flex justify-between items-center ` + 
               (isHovering && !isSelected ? 'border-dashed' : 'border-solid')}
           >
             <span>{typeLabel}_INFO</span>
             <div className="flex items-center gap-2">
               {isHovering && !isSelected && (
-                <span className="text-[#ffaa00]">[↵ SELECT]</span>
+                <span className={TEXT.WARNING}>[↵ SELECT]</span>
               )}
               {isSelected && isHoveringDifferent && (
                 <button 
                   onClick={handleAction}
-                  className="text-[#ffaa00] hover:text-[#ffcc00] hover:bg-[#ffaa00]/10 px-1.5 transition-colors"
+                  className={`${TEXT.WARNING} hover:text-[#ffcc00] hover:bg-[${COLORS.UI_WARNING}]/10 px-1.5 transition-colors`}
                 >
                   [↵ SELECT]
                 </button>
@@ -453,7 +454,7 @@ export function EntityInfoPanel({ onClose: _onClose }: EntityInfoPanelProps) {
               {isSelected && !isHoveringDifferent && (
                 <button 
                   onClick={handleAction}
-                  className="text-[#ff4444] hover:text-[#ff6666] hover:bg-[#ff4444]/10 px-1.5 transition-colors"
+                  className={`${TEXT.ERROR} hover:text-[#ff6666] hover:bg-[${COLORS.UI_ERROR}]/10 px-1.5 transition-colors`}
                 >
                   [ESC]
                 </button>
@@ -466,7 +467,7 @@ export function EntityInfoPanel({ onClose: _onClose }: EntityInfoPanelProps) {
             className="transition-[height] duration-300 ease-out"
             style={{ height: height || 'auto' }}
           >
-            <div ref={contentRef} className="p-3 text-[10px]">
+            <div ref={contentRef} className={`p-3 ${TEXT.BASE}`}>
               {displayedRef?.type === 'aircraft' && displayedEntity && (
                 <AircraftInfoContent aircraft={displayedEntity as Aircraft} glowColor={glowColor} />
               )}
@@ -474,7 +475,7 @@ export function EntityInfoPanel({ onClose: _onClose }: EntityInfoPanelProps) {
                 <AirportInfoContent airport={displayedEntity as Airport} glowColor={glowColor} />
               )}
               {displayedRef && !['aircraft', 'airport'].includes(displayedRef.type) && (
-                <div className="text-[#666]">
+                <div className={TEXT.SECONDARY}>
                   <ScrollingText text={`${typeLabel} info not yet implemented`} glowColor={glowColor} />
                 </div>
               )}
