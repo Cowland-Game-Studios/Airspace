@@ -79,7 +79,7 @@ export function Dashboard() {
             className={`text-right ${animateIn ? 'bottom-bar-item animate-in' : 'bottom-bar-item'}`}
             style={{ '--item-index': 2 } as React.CSSProperties}
           >
-            <div className="text-[8px] text-[#444]">arrows: pan/snap | shift: toggle snap | shift+tab: filter</div>
+            <div className="text-[8px] text-[#444]">⇧: snap on/off | ⇧+TAB: filter | ←↑→↓: move</div>
             <div className="text-[8px] text-[#444]">Bullhorn Aerosystems (commercial - v1.0.2)</div>
           </div>
         </div>
