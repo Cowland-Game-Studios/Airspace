@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// Response type for flight route lookup (kept for documentation)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 interface FlightRoute {
   departure: {
     airport: string;

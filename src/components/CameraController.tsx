@@ -1,11 +1,11 @@
 'use client';
 
-import { useRef, useEffect, useState, useCallback } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { useRadarStore } from '@/store/gameStore';
-import { CAMERA, LOCATIONS, GLOBE, UI, INPUT, AIRPORTS } from '@/config/constants';
+import { CAMERA, LOCATIONS, GLOBE, INPUT, AIRPORTS } from '@/config/constants';
 
 function latLonToVector3(lat: number, lon: number, alt: number = 0): THREE.Vector3 {
   const r = 1 + alt * GLOBE.ALTITUDE_SCALE;
@@ -19,13 +19,14 @@ function latLonToVector3(lat: number, lon: number, alt: number = 0): THREE.Vecto
 }
 
 export function CameraController() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const controlsRef = useRef<any>(null);
   const { camera } = useThree();
   
   const selectedEntity = useRadarStore((state) => state.gameState.selectedEntity);
   const focusLocation = useRadarStore((state) => state.gameState.focusLocation);
   const restoreCameraFlag = useRadarStore((state) => state.gameState.restoreCameraFlag);
-  const activeMode = useRadarStore((state) => state.gameState.activeMode);
+  // activeMode is accessed via getState() in findNearestEntity/findEntityInDirection to avoid stale closures
   const aircraft = useRadarStore((state) => state.aircraft);
   const airports = useRadarStore((state) => state.airports);
   const setLocationReady = useRadarStore((state) => state.setLocationReady);
@@ -747,8 +748,6 @@ export function CameraController() {
   
   useFrame((_, delta) => {
     if (!controlsRef.current) return;
-    
-    const selectedAircraft = selectedId ? aircraft.find(a => a.id === selectedId) : null;
     
     if (isAnimating.current) {
       if (animationPhase.current === 'direct') {

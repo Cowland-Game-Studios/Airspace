@@ -96,9 +96,6 @@ function LargeAirportsInstanced({ airports }: { airports: Airport[] }) {
       animationTime.current += delta;
     }
     
-    // Find hovered airport
-    const hoveredIdx = hoveredAirport ? indexToIcao.indexOf(hoveredAirport) : -1;
-    
     const dummy = new THREE.Object3D();
     const up = new THREE.Vector3(0, 0, 1);
     let maxProgress = 0;

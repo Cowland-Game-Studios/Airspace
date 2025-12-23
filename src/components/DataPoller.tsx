@@ -71,24 +71,8 @@ function normalizeLon(lon: number): number {
   return lon;
 }
 
-// Check if a point is within bounds (handles wraparound for longitude)
-function isInBounds(lat: number, lon: number, bounds: ViewportBounds): boolean {
-  if (lat < bounds.minLat || lat > bounds.maxLat) return false;
-  
-  // Handle longitude wraparound
-  const normalizedLon = normalizeLon(lon);
-  const minLon = normalizeLon(bounds.minLon);
-  const maxLon = normalizeLon(bounds.maxLon);
-  
-  if (minLon <= maxLon) {
-    return normalizedLon >= minLon && normalizedLon <= maxLon;
-  } else {
-    // Wraps around the date line
-    return normalizedLon >= minLon || normalizedLon <= maxLon;
-  }
-}
-
 // Parse OpenSky state vector into Aircraft object
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function parseStateVector(s: any[]): Aircraft | null {
   if (s[5] == null || s[6] == null) return null;
   

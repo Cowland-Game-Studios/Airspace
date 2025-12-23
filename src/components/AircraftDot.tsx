@@ -209,7 +209,7 @@ export function AircraftDot({ aircraft, onClick }: { aircraft: Aircraft; onClick
   const lastServerAlt = useRef(aircraft.position.altitude);
   const lastServerHeading = useRef(aircraft.position.heading);
   const lastServerSpeed = useRef(aircraft.position.speed);
-  const lastServerTime = useRef(Date.now());
+  const lastServerTime = useRef(0);
   const currentQuat = useRef(initialQuat.clone());
   const targetQuat = useRef(initialQuat.clone());
   
